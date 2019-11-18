@@ -22,6 +22,12 @@
         <layout class="QVBoxLayout" name="verticalLayout_2">
          <item>
           <widget class="QLabel" name="label">
+           <property name="maximumSize">
+            <size>
+             <width>400</width>
+             <height>16777215</height>
+            </size>
+           </property>
            <property name="text">
             <string>Scan Directory:</string>
            </property>
@@ -29,6 +35,12 @@
          </item>
          <item>
           <widget class="QLabel" name="scan_directory_label">
+           <property name="maximumSize">
+            <size>
+             <width>400</width>
+             <height>16777215</height>
+            </size>
+           </property>
            <property name="text">
             <string>No Directory Selected.</string>
            </property>
@@ -36,6 +48,12 @@
          </item>
          <item>
           <widget class="QPushButton" name="select_scandir_button">
+           <property name="maximumSize">
+            <size>
+             <width>400</width>
+             <height>16777215</height>
+            </size>
+           </property>
            <property name="text">
             <string>Select Scan Directory</string>
            </property>
@@ -43,6 +61,12 @@
          </item>
          <item>
           <widget class="QPushButton" name="process_scope_data_button">
+           <property name="maximumSize">
+            <size>
+             <width>400</width>
+             <height>16777215</height>
+            </size>
+           </property>
            <property name="text">
             <string>Process WFM Files</string>
            </property>
@@ -50,6 +74,12 @@
          </item>
          <item>
           <widget class="QPushButton" name="load_saved_data_button">
+           <property name="maximumSize">
+            <size>
+             <width>400</width>
+             <height>16777215</height>
+            </size>
+           </property>
            <property name="text">
             <string>Load Previously Processed Data</string>
            </property>
@@ -57,6 +87,12 @@
          </item>
          <item>
           <widget class="QPushButton" name="plot_dc_intensity_button">
+           <property name="maximumSize">
+            <size>
+             <width>400</width>
+             <height>16777215</height>
+            </size>
+           </property>
            <property name="text">
             <string>View: DC Scan Intensity</string>
            </property>
@@ -64,6 +100,12 @@
          </item>
          <item>
           <widget class="QPushButton" name="plot_sample_mask_button">
+           <property name="maximumSize">
+            <size>
+             <width>400</width>
+             <height>16777215</height>
+            </size>
+           </property>
            <property name="text">
             <string>View: DC Mask</string>
            </property>
@@ -71,6 +113,12 @@
          </item>
          <item>
           <widget class="QPushButton" name="plot_fft_map_button">
+           <property name="maximumSize">
+            <size>
+             <width>400</width>
+             <height>16777215</height>
+            </size>
+           </property>
            <property name="text">
             <string>View: Frequency Map</string>
            </property>
@@ -80,31 +128,37 @@
           <layout class="QHBoxLayout" name="horizontalLayout_3">
            <item>
             <widget class="QLabel" name="label_2">
+             <property name="maximumSize">
+              <size>
+               <width>250</width>
+               <height>16777215</height>
+              </size>
+             </property>
              <property name="text">
               <string>Patch Spacing [μm]:</string>
              </property>
             </widget>
            </item>
            <item>
-            <spacer name="horizontalSpacer">
-             <property name="orientation">
-              <enum>Qt::Horizontal</enum>
-             </property>
-             <property name="sizeHint" stdset="0">
+            <widget class="QLineEdit" name="patch_spacing_textedit">
+             <property name="maximumSize">
               <size>
-               <width>40</width>
-               <height>20</height>
+               <width>200</width>
+               <height>16777215</height>
               </size>
              </property>
-            </spacer>
-           </item>
-           <item>
-            <widget class="QLineEdit" name="patch_spacing_textedit"/>
+            </widget>
            </item>
           </layout>
          </item>
          <item>
           <widget class="QPushButton" name="plot_velocitymap_button">
+           <property name="maximumSize">
+            <size>
+             <width>400</width>
+             <height>16777215</height>
+            </size>
+           </property>
            <property name="text">
             <string>View: Velocity Map</string>
            </property>
@@ -114,6 +168,12 @@
           <layout class="QHBoxLayout" name="horizontalLayout_4">
            <item>
             <widget class="QLabel" name="label_3">
+             <property name="maximumSize">
+              <size>
+               <width>250</width>
+               <height>16777215</height>
+              </size>
+             </property>
              <property name="text">
               <string>Assign Grating Angle [deg]:</string>
              </property>
@@ -133,7 +193,14 @@
             </spacer>
            </item>
            <item>
-            <widget class="QLineEdit" name="saw_grating_angle_lineedit"/>
+            <widget class="QLineEdit" name="saw_grating_angle_lineedit">
+             <property name="maximumSize">
+              <size>
+               <width>200</width>
+               <height>16777215</height>
+              </size>
+             </property>
+            </widget>
            </item>
           </layout>
          </item>
@@ -153,14 +220,18 @@
         </layout>
        </item>
        <item>
-        <widget class="QWidget" name="mpl_canvas_widget" native="true">
-         <property name="minimumSize">
-          <size>
-           <width>600</width>
-           <height>600</height>
-          </size>
-         </property>
-        </widget>
+        <layout class="QVBoxLayout" name="mpl_vlayout">
+         <item>
+          <widget class="QWidget" name="nav_widget" native="true">
+           <property name="minimumSize">
+            <size>
+             <width>600</width>
+             <height>200</height>
+            </size>
+           </property>
+          </widget>
+         </item>
+        </layout>
        </item>
       </layout>
      </item>

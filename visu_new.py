@@ -25,12 +25,22 @@ class Ui(QMainWindow):
 
         # Create a list of the currently loaded tabs and load up the 'first' angle tab.
         self.current_tabs = [loadUi(self.tab_qwidget_filepath)]
+        
         self.tabWidget.insertTab(0, self.current_tabs[0], "Angle 1")
         self.tabWidget.removeTab(1)
         self.tabWidget.setCurrentIndex(0)
         self.tabWidget.currentChanged.connect(self.addAngleTab)
+        figure_1 = Figure()
+        fig1_axes1 = figure_1.add_subplot("111")
+        fig1_axes1.plot(np.random.rand(5))
+        self.addmpl(0, figure_1)
 
     def addAngleTab(self, tab_index):
+        """
+            addAngleTab: Signal for the main UI TabWidget currentChanged event.
+                         Adds a new angle tab at the end of the file when the 'Add Tab'
+                         tab is clicked, then switches to the new tab.
+        """
         tab_count = self.current_tabs.__len__()
         if(tab_index == tab_count):
             tab_string = "Angle {0}".format(tab_count + 1)
@@ -39,7 +49,18 @@ class Ui(QMainWindow):
                                     self.current_tabs[tab_count], tab_string)
             self.tabWidget.setCurrentIndex(tab_count)
         
-
+    def addmpl(self, tab_index, fig):
+        self.canvas = FigureCanvas(fig)
+        self.current_tabs[tab_index].mpl_vlayout.addWidget(self.canvas)
+        self.canvas.draw()
+        self.navbar = NavigationToolbar(self.canvas, self.current_tabs[tab_index].nav_widget, coordinates=True)
+        self.current_tabs[tab_index].mpl_vlayout.addWidget(self.navbar)
+    
+    def rmmpl(self, tab_index,):
+        self.current_tabs[tab_index].mpl_vlayout.removeWidget(self.canvas)
+        self.canvas.close()
+        self.current_tabs[tab_index].mpl_vlayout.removeWidget(self.navbar)
+        self.navbar.close()
 
 app = QApplication(sys.argv)
 window = Ui()
