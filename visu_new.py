@@ -18,9 +18,9 @@ import tekmapper
 class Ui(QMainWindow):
 
     def __init__(self):
-        self.tab_qwidget_filepath = 'visu_tab_widget.ui'
+        self.tab_qwidget_filepath = 'C://Users//tkales//source//repos//visu//visu_tab_widget.ui'
         super(Ui, self).__init__()
-        loadUi('visu_gui_new.ui', self)
+        loadUi('C://Users//tkales//source//repos//visu//visu_gui_new.ui', self)
         self.show()
 
         # Create a list of the currently loaded tabs and load up the 'first' angle tab.
@@ -35,10 +35,9 @@ class Ui(QMainWindow):
         self.system_figure_axes[0].plot(np.random.rand(5))
         self.addmpl(0, self.system_figures[0])
         self.connectAngleTab(0)
-        # figure_1 = Figure()
-        # fig1_axes1 = figure_1.add_subplot("111")
-        # fig1_axes1.plot(np.random.rand(5))
-        # self.addmpl(0, figure_1)
+        
+        # Create a list for the SRAS dataset objects
+        self.datasets = [SRASDataset()]
 
     def addAngleTab(self, tab_index):
         """
@@ -58,6 +57,7 @@ class Ui(QMainWindow):
             self.system_figure_axes[-1].plot(np.random.rand(5))
             self.addmpl((self.system_figures.__len__()-1), self.system_figures[-1])
             self.connectAngleTab(tab_count)
+            self.datasets.append(SRASDataset)
 
     def connectAngleTab(self, tab_index):
         """
@@ -65,7 +65,7 @@ class Ui(QMainWindow):
                              UI elements in each tab. Only really designed to be
                              called from addAngleTab
         """   
-        self.current_tabs[tab_index].select_scandir_button.clicked.connect(partial(self.noFunctionalityDialog, tab_index))
+        self.current_tabs[tab_index].select_scandir_button.clicked.connect(partial(self.selectDirectory, tab_index))
         self.current_tabs[tab_index].process_scope_data_button.clicked.connect(partial(self.noFunctionalityDialog, tab_index))
         self.current_tabs[tab_index].load_saved_data_button.clicked.connect(partial(self.noFunctionalityDialog, tab_index))
         self.current_tabs[tab_index].plot_dc_intensity_button.clicked.connect(partial(self.noFunctionalityDialog, tab_index))
@@ -98,6 +98,97 @@ class Ui(QMainWindow):
         "Signal Received from tab #{0}".format(tab_number))
         oops_dialog.exec()
         return
+
+    def selectDirectory(self, tab_number):
+        self.datasets[tab_number].data_directory = str(QFileDialog.getExistingDirectory(
+            self, "Select scan data directory:"))
+        self.datasets[tab_number].load_files()
+
+
+class SRASDataset():
+    
+
+    def __init__(self):
+        self._datadir = ""
+        self._isdc_ready = False
+        self._isfft_ready = False
+        self._isvelocity_ready = False
+        
+        self.coordinates = {"x_start": 0.0, "y_start": 0.0,
+                            "x_step": 0.0, "y_step":0.0}
+        
+        self.dc_files = []
+        self.rf_files = []
+
+    @property        
+    def data_directory(self):
+        return self._datadir
+
+    @data_directory.setter
+    def data_directory(self, value):
+        self._datadir = value
+        
+    
+    @property
+    def dc_ready(self):
+        return self._isdc_ready
+    
+    @dc_ready.setter
+    def dc_ready(self, value):
+        self._isdc_ready = value
+        
+
+    @property
+    def fft_ready(self):
+        return self._isfft_ready
+
+    @fft_ready.setter
+    def fft_ready(self, value):
+        self._isfft_ready = value
+
+
+    @property
+    def velocity_ready(self):
+        return self._isvelocity_ready
+
+    @velocity_ready.setter
+    def velocity_ready(self, value):
+        self._isvelocity_ready = value
+        
+
+    def load_files(self):
+        """
+            load_files: Function to search the assigned scan_directory and load the 
+                        files from within it. Does not perform any processing of the
+                        files.
+        """
+        if(self.data_directory == ""):
+        
+            raise Exception("No data directory was initally selected for this object.")
+        else:
+            os.chdir(self.data_directory)
+
+            for current_file in glob.glob("*.wfm"):
+                if(current_file.startswith("RF")):
+                    self.rf_files.append(self.data_directory + "/" + current_file)
+                elif(current_file.startswith("DC")):
+                    self.dc_files.append(self.data_directory + "/" + current_file)
+            
+            notification_box = QMessageBox()
+            notification_box.setText("Found {0} RF files, and {1} DC files.".format(
+                self.rf_files.__len__(), self.dc_files.__len__()))
+            notification_box.setStandardButtons(QMessageBox.Ok)
+            notification_box.exec()
+        
+    def process_dc(self, mask_threshold=0.08):
+        """
+            process_dc: Function to process the dc_files and load them into the corresponding
+                        image matrix. Also computes the mask according to the mask_threshold.
+                        mask_threshold is set to 80mV by default, but can be overridden.
+        """
+        _vt, _ts, _tsc, _tf, _tdf, _td = tekwfm.read_wfm    
+    
+
 app = QApplication(sys.argv)
 window = Ui()
 app.exec_()
