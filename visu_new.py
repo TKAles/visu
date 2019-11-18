@@ -18,9 +18,9 @@ import tekmapper
 class Ui(QMainWindow):
 
     def __init__(self):
-        self.tab_qwidget_filepath = 'C://Users//tka//source//repos//tempvisu//visu//visu_tab_widget.ui'
+        self.tab_qwidget_filepath = 'visu_tab_widget.ui'
         super(Ui, self).__init__()
-        loadUi('C://Users//tka//source//repos//tempvisu//visu//visu_gui_new.ui', self)
+        loadUi('visu_gui_new.ui', self)
         self.show()
 
         # Create a list of the currently loaded tabs and load up the 'first' angle tab.
@@ -30,10 +30,15 @@ class Ui(QMainWindow):
         self.tabWidget.removeTab(1)
         self.tabWidget.setCurrentIndex(0)
         self.tabWidget.currentChanged.connect(self.addAngleTab)
-        figure_1 = Figure()
-        fig1_axes1 = figure_1.add_subplot("111")
-        fig1_axes1.plot(np.random.rand(5))
-        self.addmpl(0, figure_1)
+        self.system_figures = [Figure()]
+        self.system_figure_axes = [self.system_figures[0].add_subplot("111")]
+        self.system_figure_axes[0].plot(np.random.rand(5))
+        self.addmpl(0, self.system_figures[0])
+        
+        # figure_1 = Figure()
+        # fig1_axes1 = figure_1.add_subplot("111")
+        # fig1_axes1.plot(np.random.rand(5))
+        # self.addmpl(0, figure_1)
 
     def addAngleTab(self, tab_index):
         """
@@ -48,6 +53,10 @@ class Ui(QMainWindow):
             self.tabWidget.insertTab(tab_count,
                                     self.current_tabs[tab_count], tab_string)
             self.tabWidget.setCurrentIndex(tab_count)
+            self.system_figures.append(Figure())
+            self.system_figure_axes.append(self.system_figures[-1].add_subplot("111"))
+            self.system_figure_axes[-1].plot(np.random.rand(5))
+            self.addmpl((self.system_figures.__len__()-1), self.system_figures[-1])
         
     def addmpl(self, tab_index, fig):
         self.canvas = FigureCanvas(fig)

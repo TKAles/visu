@@ -7,11 +7,11 @@
     <x>0</x>
     <y>0</y>
     <width>900</width>
-    <height>787</height>
+    <height>575</height>
    </rect>
   </property>
   <property name="windowTitle">
-   <string>MainWindow</string>
+   <string>visu 0.0.1 | alpha</string>
   </property>
   <widget class="QWidget" name="centralwidget">
    <layout class="QVBoxLayout" name="verticalLayout_2">
@@ -20,7 +20,7 @@
       <item>
        <widget class="QTabWidget" name="tabWidget">
         <property name="currentIndex">
-         <number>1</number>
+         <number>0</number>
         </property>
         <widget class="QWidget" name="tab_angle_1">
          <attribute name="title">
