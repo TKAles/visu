@@ -155,7 +155,7 @@
           </layout>
          </item>
          <item>
-          <widget class="QPushButton" name="plot_velocitymap_button">
+          <widget class="QPushButton" name="plot_velocity_map_button">
            <property name="maximumSize">
             <size>
              <width>400</width>
@@ -223,19 +223,6 @@
             </size>
            </property>
           </widget>
-         </item>
-         <item>
-          <spacer name="verticalSpacer_2">
-           <property name="orientation">
-            <enum>Qt::Vertical</enum>
-           </property>
-           <property name="sizeHint" stdset="0">
-            <size>
-             <width>20</width>
-             <height>40</height>
-            </size>
-           </property>
-          </spacer>
          </item>
         </layout>
        </item>
