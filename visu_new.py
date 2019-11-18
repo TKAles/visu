@@ -182,7 +182,7 @@ class SRASDataset():
         
     def process_dc(self, mask_threshold=0.08):
         """
-            process_dc: Function to process the dc_files and load them into the corresponding
+            process_dc: Function to process the dc_files ande load them into the corresponding
                         image matrix. Also computes the mask according to the mask_threshold.
                         mask_threshold is set to 80mV by default, but can be overridden.
         """
