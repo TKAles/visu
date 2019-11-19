@@ -14,13 +14,13 @@ from matplotlib.backends.backend_qt5agg import (
 import numpy as np
 import pandas as pd
 import tekmapper
-
+import tekwfm
 class Ui(QMainWindow):
 
     def __init__(self):
-        self.tab_qwidget_filepath = 'C://Users//tkales//source//repos//visu//visu_tab_widget.ui'
+        self.tab_qwidget_filepath = 'visu_tab_widget.ui'
         super(Ui, self).__init__()
-        loadUi('C://Users//tkales//source//repos//visu//visu_gui_new.ui', self)
+        loadUi('visu_gui_new.ui', self)
         self.show()
 
         # Create a list of the currently loaded tabs and load up the 'first' angle tab.
@@ -36,6 +36,10 @@ class Ui(QMainWindow):
         self.addmpl(0, self.system_figures[0])
         self.connectAngleTab(0)
         
+        # some flags to enable/disable buttons
+        self.valid_velocity = False
+        self.valid_angle = False
+
         # Create a list for the SRAS dataset objects
         self.datasets = [SRASDataset()]
 
@@ -65,15 +69,16 @@ class Ui(QMainWindow):
                              UI elements in each tab. Only really designed to be
                              called from addAngleTab
         """   
+        self.current_tabs[tab_index].plot_velocity_map_button.setEnabled(False)
         self.current_tabs[tab_index].select_scandir_button.clicked.connect(partial(self.selectDirectory, tab_index))
         self.current_tabs[tab_index].process_scope_data_button.clicked.connect(partial(self.noFunctionalityDialog, tab_index))
         self.current_tabs[tab_index].load_saved_data_button.clicked.connect(partial(self.noFunctionalityDialog, tab_index))
-        self.current_tabs[tab_index].plot_dc_intensity_button.clicked.connect(partial(self.noFunctionalityDialog, tab_index))
+        self.current_tabs[tab_index].plot_dc_intensity_button.clicked.connect(partial(self.viewDCMap, tab_index))
         self.current_tabs[tab_index].plot_sample_mask_button.clicked.connect(partial(self.noFunctionalityDialog, tab_index))
         self.current_tabs[tab_index].plot_fft_map_button.clicked.connect(partial(self.noFunctionalityDialog, tab_index))
-        self.current_tabs[tab_index].patch_spacing_textedit.textChanged.connect(partial(self.noFunctionalityDialog, tab_index))
+        self.current_tabs[tab_index].patch_spacing_textedit.editingFinished.connect(partial(self.updateSAWSize, tab_index))
         self.current_tabs[tab_index].plot_velocity_map_button.clicked.connect(partial(self.noFunctionalityDialog, tab_index))
-        self.current_tabs[tab_index].saw_grating_angle_lineedit.textChanged.connect(partial(self.noFunctionalityDialog, tab_index))
+        self.current_tabs[tab_index].saw_grating_angle_lineedit.editingFinished.connect(partial(self.noFunctionalityDialog, tab_index))
 
     def addmpl(self, tab_index, fig):
         """
@@ -86,12 +91,19 @@ class Ui(QMainWindow):
         self.current_tabs[tab_index].mpl_vlayout.addWidget(self.navbar)
     
     def rmmpl(self, tab_index,):
+        """
+        rmmpl does what addmpl does, but backwards.
+        """
         self.current_tabs[tab_index].mpl_vlayout.removeWidget(self.canvas)
         self.canvas.close()
         self.current_tabs[tab_index].mpl_vlayout.removeWidget(self.navbar)
         self.navbar.close()
 
     def noFunctionalityDialog(self, tab_number):
+        """
+        noFunctionalityDialog(int): Displays an oopsie dialog along with the offending tab it came from.
+                                    That way you can re-educate it...
+        """
         oops_dialog = QMessageBox()
         print("This functionality has not been implemented yet.")
         oops_dialog.setText("This functionality has not been implemented yet.\n" +
@@ -100,9 +112,43 @@ class Ui(QMainWindow):
         return
 
     def selectDirectory(self, tab_number):
+        """
+        selectDirectory(int):   Pops a QFileDialog in directory mode to load up the .WFM files. 
+                                Expects the tab number to properly assign the scan_directory
+                                property of the SRASDataset object.
+        """
         self.datasets[tab_number].data_directory = str(QFileDialog.getExistingDirectory(
             self, "Select scan data directory:"))
         self.datasets[tab_number].load_files()
+
+    def updateSAWSize(self, tab_number):
+        """
+        updateSAWSize(int):     Triggers on a QLineEdit editingFinished() signal. Validates the input
+                                and enables the 'Calculate Velocity Map' option if it gets a value that
+                                isn't absolutely insane. (15-500 microns is ~~*valid*~~)
+        """
+        try:
+            parsed_value = int(self.current_tabs[tab_number].patch_spacing_textedit.text())
+
+        except ValueError:
+            parsed_value = 0
+
+        if(15 < parsed_value < 500):
+            self.current_tabs[tab_number].plot_velocity_map_button.setEnabled(True)
+        else:
+            self.current_tabs[tab_number].plot_velocity_map_button.setEnabled(False)
+
+    def viewDCMap(self, tab_number):
+        if(self.datasets[tab_number].dc_ready == False):
+            self.datasets[tab_number].process_dc()
+            self.rmmpl(0)
+            self.system_figures[tab_number] = plt.figure(figsize=[10,10])
+            self.system_figure_axes[tab_number] = self.system_figures[tab_number].add_subplot("111")
+            self.system_figure_axes[tab_number].imshow(
+                self.datasets[tab_number].dc_map, 
+                aspect=self.datasets[tab_number].number_of_records/self.datasets[tab_number].dc_files.__len__()
+                )
+            self.addmpl(tab_number, self.system_figures[tab_number])
 
 
 class SRASDataset():
@@ -110,6 +156,7 @@ class SRASDataset():
 
     def __init__(self):
         self._datadir = ""
+        
         self._isdc_ready = False
         self._isfft_ready = False
         self._isvelocity_ready = False
@@ -119,6 +166,15 @@ class SRASDataset():
         
         self.dc_files = []
         self.rf_files = []
+
+        self.record_length = 0
+        self.number_of_records = 0
+
+        self.dc_map = pd.DataFrame()
+        self.dc_mask = pd.DataFrame()
+        self.fft_map = pd.DataFrame()
+        self.fft_spd_map = pd.DataFrame()
+
 
     @property        
     def data_directory(self):
@@ -179,6 +235,7 @@ class SRASDataset():
                 self.rf_files.__len__(), self.dc_files.__len__()))
             notification_box.setStandardButtons(QMessageBox.Ok)
             notification_box.exec()
+            
         
     def process_dc(self, mask_threshold=0.08):
         """
@@ -186,8 +243,16 @@ class SRASDataset():
                         image matrix. Also computes the mask according to the mask_threshold.
                         mask_threshold is set to 80mV by default, but can be overridden.
         """
-        _vt, _ts, _tsc, _tf, _tdf, _td = tekwfm.read_wfm    
-    
+        temp_dc_map = []
+        for current_dc in self.dc_files:
+            _vt, _ts, _tsc, _tf, _tdf, _td = tekwfm.read_wfm(current_dc)    
+            if((self.record_length and self.number_of_records) == 0):
+                self.record_length, self.number_of_records = _vt.shape
+            dc_dataframe = pd.DataFrame(_vt)
+            temp_dc_map.append(dc_dataframe.mean())
+        
+        self.dc_map = pd.DataFrame(temp_dc_map)
+        self.dc_mask = self.dc_map > mask_threshold
 
 app = QApplication(sys.argv)
 window = Ui()
