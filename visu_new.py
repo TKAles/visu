@@ -12,6 +12,7 @@ from matplotlib.backends.backend_qt5agg import (
     FigureCanvasQTAgg as FigureCanvas,
     NavigationToolbar2QT as NavigationToolbar)
 import numpy as np
+import scipy as sp
 import pandas as pd
 import tekmapper
 import tekwfm
@@ -77,7 +78,7 @@ class Ui(QMainWindow):
         self.current_tabs[tab_index].plot_dc_intensity_button.setEnabled(False)
         self.current_tabs[tab_index].plot_sample_mask_button.clicked.connect(partial(self.viewDCMask, tab_index))
         self.current_tabs[tab_index].plot_sample_mask_button.setEnabled(False)
-        self.current_tabs[tab_index].plot_fft_map_button.clicked.connect(partial(self.noFunctionalityDialog, tab_index))
+        self.current_tabs[tab_index].plot_fft_map_button.clicked.connect(partial(self.viewFFT, tab_index))
         self.current_tabs[tab_index].plot_fft_map_button.setEnabled(False)
         self.current_tabs[tab_index].patch_spacing_textedit.editingFinished.connect(partial(self.updateSAWSize, tab_index))
         self.current_tabs[tab_index].plot_velocity_map_button.clicked.connect(partial(self.noFunctionalityDialog, tab_index))
@@ -127,6 +128,7 @@ class Ui(QMainWindow):
             self.current_tabs[tab_number].plot_dc_intensity_button.setEnabled(True)
             self.current_tabs[tab_number].plot_sample_mask_button.setEnabled(True)
             self.current_tabs[tab_number].plot_fft_map_button.setEnabled(True)
+
         except Exception:
             
             pass
@@ -151,49 +153,47 @@ class Ui(QMainWindow):
     def viewDCMap(self, tab_number):
 
         if(self.datasets[tab_number].dc_ready == False):
+            processingBox = QMessageBox()
+            processingBox.ButtonMask
             self.datasets[tab_number].process_dc()
-            self.rmmpl(tab_number)
-            self.system_figures[tab_number] = plt.Figure(figsize=[10,10])
-            self.system_figure_axes[tab_number] = self.system_figures[tab_number].add_subplot("111")
-            self.system_figure_axes[tab_number].imshow(
-                self.datasets[tab_number].dc_map, 
-                aspect=self.datasets[tab_number].number_of_records/self.datasets[tab_number].dc_files.__len__()
-                )
-            self.addmpl(tab_number, self.system_figures[tab_number])
-        elif(self.datasets[tab_number].dc_ready == True):
-            self.rmmpl(tab_number)
-            self.system_figures[tab_number] = plt.Figure(figsize=[10,10])
-            self.system_figure_axes[tab_number] = self.system_figures[tab_number].add_subplot("111")
-            self.system_figure_axes[tab_number].imshow(
-                self.datasets[tab_number].dc_map, 
-                aspect=self.datasets[tab_number].number_of_records/self.datasets[tab_number].dc_files.__len__()
-                )
-            self.addmpl(tab_number, self.system_figures[tab_number])
-            
+        self.rmmpl(tab_number)
+        self.system_figures[tab_number] = plt.Figure(figsize=[10,10])
+        self.system_figure_axes[tab_number] = self.system_figures[tab_number].add_subplot("111")
+        self.system_figure_axes[tab_number].imshow(
+            self.datasets[tab_number].dc_map, 
+            aspect=self.datasets[tab_number].number_of_records/self.datasets[tab_number].dc_files.__len__()
+            )
+        self.addmpl(tab_number, self.system_figures[tab_number])
+        return
 
     def viewDCMask(self, tab_number):
         
         if(self.datasets[tab_number].dc_ready == False):
             self.datasets[tab_number].process_dc()
-            self.rmmpl(tab_number)
-            self.system_figures[tab_number] = plt.Figure(figsize=[10,10])
-            self.system_figure_axes[tab_number] = self.system_figures[tab_number].add_subplot("111")
-            self.system_figure_axes[tab_number].imshow(
-                self.datasets[tab_number].dc_mask, 
-                aspect=self.datasets[tab_number].number_of_records/self.datasets[tab_number].dc_files.__len__()
-            )
-            self.addmpl(tab_number, self.system_figures[tab_number])
+        self.rmmpl(tab_number)
+        self.system_figures[tab_number] = plt.Figure(figsize=[10,10])
+        self.system_figure_axes[tab_number] = self.system_figures[tab_number].add_subplot("111")
+        self.system_figure_axes[tab_number].imshow(
+            self.datasets[tab_number].dc_mask, 
+            aspect=self.datasets[tab_number].number_of_records/self.datasets[tab_number].dc_files.__len__()
+        )
+        self.addmpl(tab_number, self.system_figures[tab_number])
+        return
 
-        elif(self.datasets[tab_number].dc_ready == True):
-            self.rmmpl(tab_number)
-            self.system_figures[tab_number] = plt.Figure(figsize=[10,10])
-            self.system_figure_axes[tab_number] = self.system_figures[tab_number].add_subplot("111")
-            self.system_figure_axes[tab_number].imshow(
-                self.datasets[tab_number].dc_mask, 
-                aspect=self.datasets[tab_number].number_of_records/self.datasets[tab_number].dc_files.__len__()
-            )
-            self.addmpl(tab_number, self.system_figures[tab_number])
-
+    def viewFFT(self, tab_number):
+        if(self.datasets[tab_number].fft_ready == False):
+            self.datasets[tab_number].process_fft()
+        
+        self.rmmpl(tab_number)
+        self.system_figures[tab_number] = plt.Figure(figsize=[10,10])
+        self.system_figure_axes[tab_number] = self.system_figures[tab_number].add_subplot("111")
+        self.system_figure_axes[tab_number].imshow(
+            self.datasets[tab_number].fft_map, 
+            aspect=self.datasets[tab_number].number_of_records/self.datasets[tab_number].dc_files.__len__()
+        )
+        self.addmpl(tab_number, self.system_figures[tab_number])
+        return
+        
 class SRASDataset():
     
 
@@ -302,6 +302,24 @@ class SRASDataset():
         self.dc_mask = self.dc_map >= mask_threshold
         self.dc_ready = True
         
+    def process_fft(self, s_rate=6.25E9):
+        """
+            process_fft: Function to process the fft_files and load them into
+                         an image matrix. Also uses the dc_mask to threshold the
+                         data.
+        """
+        temp_rf_map = []
+        for current_rf in self.rf_files:
+            _vt, _ts, _tsc, _tf, _tdf, _td = tekwfm.read_wfm(current_rf)
+            frequencies = []
+            for record_index in range(0, self.number_of_records):
+                wfmfft = list(sp.fftpack.rfft(_vt[:,record_index]))
+                wfmfreqs = sp.fftpack.fftfreq(wfmfft.__len__()) * s_rate
+                frequencies.append(wfmfreqs[wfmfft.index(max(wfmfft))])
+            temp_rf_map.append(frequencies)
+        
+        self.fft_map = pd.DataFrame(temp_rf_map) * self.dc_mask
+        self.fft_ready = True
 
 app = QApplication(sys.argv)
 window = Ui()
