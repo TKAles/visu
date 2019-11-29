@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>848</width>
+    <width>867</width>
     <height>647</height>
    </rect>
   </property>
@@ -56,19 +56,6 @@
            </property>
            <property name="text">
             <string>Select Scan Directory</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QPushButton" name="process_scope_data_button">
-           <property name="maximumSize">
-            <size>
-             <width>400</width>
-             <height>16777215</height>
-            </size>
-           </property>
-           <property name="text">
-            <string>Process WFM Files</string>
            </property>
           </widget>
          </item>

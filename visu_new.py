@@ -18,13 +18,14 @@ import tekwfm
 class Ui(QMainWindow):
 
     def __init__(self):
+        self.tab_qwidget_directorypath = 'C://Users//ThomasAles//source//repos//neu//visu//'
         self.tab_qwidget_filepath = 'visu_tab_widget.ui'
         super(Ui, self).__init__()
         loadUi('visu_gui_new.ui', self)
         self.show()
 
         # Create a list of the currently loaded tabs and load up the 'first' angle tab.
-        self.current_tabs = [loadUi(self.tab_qwidget_filepath)]
+        self.current_tabs = [loadUi(self.tab_qwidget_directorypath + self.tab_qwidget_filepath)]
         
         self.tabWidget.insertTab(0, self.current_tabs[0], "Angle 1")
         self.tabWidget.removeTab(1)
@@ -52,7 +53,7 @@ class Ui(QMainWindow):
         tab_count = self.current_tabs.__len__()
         if(tab_index == tab_count):
             tab_string = "Angle {0}".format(tab_count + 1)
-            self.current_tabs.append(loadUi(self.tab_qwidget_filepath))
+            self.current_tabs.append(loadUi(self.tab_qwidget_directorypath + self.tab_qwidget_filepath))
             self.tabWidget.insertTab(tab_count,
                                     self.current_tabs[tab_count], tab_string)
             self.tabWidget.setCurrentIndex(tab_count)
@@ -71,11 +72,13 @@ class Ui(QMainWindow):
         """   
         self.current_tabs[tab_index].plot_velocity_map_button.setEnabled(False)
         self.current_tabs[tab_index].select_scandir_button.clicked.connect(partial(self.selectDirectory, tab_index))
-        self.current_tabs[tab_index].process_scope_data_button.clicked.connect(partial(self.noFunctionalityDialog, tab_index))
         self.current_tabs[tab_index].load_saved_data_button.clicked.connect(partial(self.noFunctionalityDialog, tab_index))
         self.current_tabs[tab_index].plot_dc_intensity_button.clicked.connect(partial(self.viewDCMap, tab_index))
-        self.current_tabs[tab_index].plot_sample_mask_button.clicked.connect(partial(self.noFunctionalityDialog, tab_index))
+        self.current_tabs[tab_index].plot_dc_intensity_button.setEnabled(False)
+        self.current_tabs[tab_index].plot_sample_mask_button.clicked.connect(partial(self.viewDCMask, tab_index))
+        self.current_tabs[tab_index].plot_sample_mask_button.setEnabled(False)
         self.current_tabs[tab_index].plot_fft_map_button.clicked.connect(partial(self.noFunctionalityDialog, tab_index))
+        self.current_tabs[tab_index].plot_fft_map_button.setEnabled(False)
         self.current_tabs[tab_index].patch_spacing_textedit.editingFinished.connect(partial(self.updateSAWSize, tab_index))
         self.current_tabs[tab_index].plot_velocity_map_button.clicked.connect(partial(self.noFunctionalityDialog, tab_index))
         self.current_tabs[tab_index].saw_grating_angle_lineedit.editingFinished.connect(partial(self.noFunctionalityDialog, tab_index))
@@ -117,9 +120,16 @@ class Ui(QMainWindow):
                                 Expects the tab number to properly assign the scan_directory
                                 property of the SRASDataset object.
         """
-        self.datasets[tab_number].data_directory = str(QFileDialog.getExistingDirectory(
-            self, "Select scan data directory:"))
-        self.datasets[tab_number].load_files()
+        try:
+            self.datasets[tab_number].data_directory = str(QFileDialog.getExistingDirectory(
+                self, "Select scan data directory:"))
+            self.datasets[tab_number].load_files()
+            self.current_tabs[tab_number].plot_dc_intensity_button.setEnabled(True)
+            self.current_tabs[tab_number].plot_sample_mask_button.setEnabled(True)
+            self.current_tabs[tab_number].plot_fft_map_button.setEnabled(True)
+        except Exception:
+            
+            pass
 
     def updateSAWSize(self, tab_number):
         """
@@ -139,17 +149,50 @@ class Ui(QMainWindow):
             self.current_tabs[tab_number].plot_velocity_map_button.setEnabled(False)
 
     def viewDCMap(self, tab_number):
+
         if(self.datasets[tab_number].dc_ready == False):
             self.datasets[tab_number].process_dc()
-            self.rmmpl(0)
-            self.system_figures[tab_number] = plt.figure(figsize=[10,10])
+            self.rmmpl(tab_number)
+            self.system_figures[tab_number] = plt.Figure(figsize=[10,10])
             self.system_figure_axes[tab_number] = self.system_figures[tab_number].add_subplot("111")
             self.system_figure_axes[tab_number].imshow(
                 self.datasets[tab_number].dc_map, 
                 aspect=self.datasets[tab_number].number_of_records/self.datasets[tab_number].dc_files.__len__()
                 )
             self.addmpl(tab_number, self.system_figures[tab_number])
+        elif(self.datasets[tab_number].dc_ready == True):
+            self.rmmpl(tab_number)
+            self.system_figures[tab_number] = plt.Figure(figsize=[10,10])
+            self.system_figure_axes[tab_number] = self.system_figures[tab_number].add_subplot("111")
+            self.system_figure_axes[tab_number].imshow(
+                self.datasets[tab_number].dc_map, 
+                aspect=self.datasets[tab_number].number_of_records/self.datasets[tab_number].dc_files.__len__()
+                )
+            self.addmpl(tab_number, self.system_figures[tab_number])
+            
 
+    def viewDCMask(self, tab_number):
+        
+        if(self.datasets[tab_number].dc_ready == False):
+            self.datasets[tab_number].process_dc()
+            self.rmmpl(tab_number)
+            self.system_figures[tab_number] = plt.Figure(figsize=[10,10])
+            self.system_figure_axes[tab_number] = self.system_figures[tab_number].add_subplot("111")
+            self.system_figure_axes[tab_number].imshow(
+                self.datasets[tab_number].dc_mask, 
+                aspect=self.datasets[tab_number].number_of_records/self.datasets[tab_number].dc_files.__len__()
+            )
+            self.addmpl(tab_number, self.system_figures[tab_number])
+
+        elif(self.datasets[tab_number].dc_ready == True):
+            self.rmmpl(tab_number)
+            self.system_figures[tab_number] = plt.Figure(figsize=[10,10])
+            self.system_figure_axes[tab_number] = self.system_figures[tab_number].add_subplot("111")
+            self.system_figure_axes[tab_number].imshow(
+                self.datasets[tab_number].dc_mask, 
+                aspect=self.datasets[tab_number].number_of_records/self.datasets[tab_number].dc_files.__len__()
+            )
+            self.addmpl(tab_number, self.system_figures[tab_number])
 
 class SRASDataset():
     
@@ -218,6 +261,10 @@ class SRASDataset():
                         files from within it. Does not perform any processing of the
                         files.
         """
+        if(self.dc_files.__len__() > 0):
+            self.dc_files = []
+            self.rf_files = []
+        
         if(self.data_directory == ""):
         
             raise Exception("No data directory was initally selected for this object.")
@@ -252,7 +299,9 @@ class SRASDataset():
             temp_dc_map.append(dc_dataframe.mean())
         
         self.dc_map = pd.DataFrame(temp_dc_map)
-        self.dc_mask = self.dc_map > mask_threshold
+        self.dc_mask = self.dc_map >= mask_threshold
+        self.dc_ready = True
+        
 
 app = QApplication(sys.argv)
 window = Ui()
