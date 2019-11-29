@@ -153,8 +153,6 @@ class Ui(QMainWindow):
     def viewDCMap(self, tab_number):
 
         if(self.datasets[tab_number].dc_ready == False):
-            processingBox = QMessageBox()
-            processingBox.ButtonMask
             self.datasets[tab_number].process_dc()
         self.rmmpl(tab_number)
         self.system_figures[tab_number] = plt.Figure(figsize=[10,10])
