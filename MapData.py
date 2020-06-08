@@ -5,7 +5,7 @@
 '''
 import glob
 import os
-
+import gc
 from joblib import Parallel, delayed
 
 import tqdm.notebook as tqdm
@@ -27,6 +27,7 @@ class TekMap:
         '''
         TekMap: Constructor, requires _datadir which is an absolute path to the WFM directory.
         '''
+        gc.enable()
         self.map_directory = _datadir
         
         # Search for files in the map_directory. Sort into RF and DC waveforms
@@ -43,9 +44,11 @@ class TekMap:
         print("Loaded {0} & {1} DC / RF Files".format(self.rf_filelist.__len__(),
                                                       self.dc_filelist.__len__()))
 
-        for idx, current_file in tqdm.tqdm(enumerate(self.rf_filelist)):
+        for idx, current_file in enumerate(self.rf_filelist):
             self.waveforms.append([idx, TekData.TekWaveForm(current_file, self.dc_filelist[idx])])
+            print(idx.__str__())
 
+        gc.collect()
         return
 
 
