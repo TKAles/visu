@@ -78,19 +78,28 @@ class TekWaveForm:
             self.saw_window_points.append([start_window, end_window])
         return
 
-    def compute_fft(self, _mode="Full"):
+    def compute_fft(self, _mode="Full", _memory=False):
+        '''
+        compute_fft(_mode="Full|Window", _memory=False|True): Computes the FFT of the waveform 
+                for either the full record, or windowed record depending on mode. Will keep RF waveform
+                data in memory if you have the RAM to spare (VERY HUNGRY, YOU'VE BEEN WARNED).
+        '''
         maxfreqs = []
         if(_mode == "Full"):
             for record_index in range(0, self.frames_in_file):
                 fftrec = list(sp.fft.rfft(list(self.rf_data[record_index])))
                 freq = list(sp.fft.fftfreq(self.rf_data.__len__()) * self.sample_rate)
                 maxfreqs.append(freq[fftrec.index(max(fftrec))])
+
             self.full_frequencies = maxfreqs * self.dc_mask
+
         elif(_mode == "Window"):
             for record_index in range(0, self.frames_in_file):
                 window = list(self.rf_data[record_index].loc[self.saw_window_points[record_index][0]:self.saw_window_points[record_index][1]])
                 fftrec = list(sp.fft.rfft(window))
                 freq = list(sp.fft.fftfreq(window.__len__()) * self.sample_rate)
                 maxfreqs.append(freq[fftrec.index(max(fftrec))])
+
             self.windowed_frequencies = maxfreqs * self.dc_mask
-        pass
+
+        return
