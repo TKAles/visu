@@ -112,4 +112,4 @@ class TekWaveForm:
             self.windowed_frequencies = maxfreqs 
         del _vt, _ts, _tsc, _tf, _tdf, _td
         
-        return
+        return self.full_frequencies
