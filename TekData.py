@@ -6,9 +6,10 @@
 import math
 import tekwfm
 import pandas as pd
+import numpy as np
 import scipy.signal
 import scipy as sp
-
+import pyfftw
 class TekWaveForm:
     '''
         TekData: Data structure for waveforms captured from Tektronix MSO 5/6 Oscilloscopes
@@ -17,10 +18,9 @@ class TekWaveForm:
     rf_filename = ""
     dc_filename = ""
 
-    rf_data = []
-    windowed_rf_data = []
-    full_frequencies = []
-    windowed_frequencies = []
+    frequencies = []
+    velocity_data = []
+    rf_voltage_data = []
     sample_timestart = 0.0
     sample_timestep = 0.0
     sample_rate = 0
@@ -30,12 +30,13 @@ class TekWaveForm:
     mask_threshold_voltage = 0.080
     saw_packet_centerpoint = 0
     saw_window_points = []
-    saw_packet_window = [512, 511]
+    saw_packet_window = [512, 512]
 
     points_per_record = 0
     frames_in_file = 0
 
-
+    psd_fits = []
+    _rec = []
   
     def __init__(self, _rf_file, _dc_file):
         '''
@@ -66,25 +67,6 @@ class TekWaveForm:
         self.dc_mask = self.mean_dc_level >= self.mask_threshold_voltage
         return
 
-    def isolate_packet(self):
-        '''
-        isolate_packet(): Isolates the saw packet based off of maximum voltage.
-        '''
-        for current_frame in range(0, self.frames_in_file):
-            self.saw_packet_centerpoint = self.rf_data[current_frame].argmax()
-            start_window = self.saw_packet_centerpoint - self.saw_packet_window[0]
-            if(start_window < 0):
-                end_window = 1023
-                start_window = 0
-            else:
-                end_window = self.saw_packet_centerpoint + self.saw_packet_window[1]
-
-            self.windowed_rf_data.append(self.rf_data[current_frame].loc[start_window:end_window].tolist())
-            
-            self.saw_window_points.append([start_window, end_window])
-        self.windowed_rf_data = pd.DataFrame(self.windowed_rf_data)
-        return
-
     def compute_fft(self, _mode="Window", _memory=False):
         '''
         compute_fft(_mode="Full|Window", _memory=False|True): Computes the FFT of the waveform 
@@ -94,22 +76,104 @@ class TekWaveForm:
         _vt, _ts, _tsc, _tf, _tdf, _td = tekwfm.read_wfm(self.rf_filename)
         _vtdf = pd.DataFrame(_vt)
         maxfreqs = []
+        self.psd_fits = []
         if(_mode == "Full"):
             for record_index in range(0, self.frames_in_file):
                 fftrec = list(sp.fft.rfft(list(_vtdf[record_index])))
                 freq = list(sp.fft.fftfreq(fftrec.__len__()) * self.sample_rate)
                 maxfreqs.append(freq[fftrec.index(max(fftrec))])
-
-            self.full_frequencies = maxfreqs 
-
+                #self.psd_fits.append(self.fit_gaussian_model(np.abs(freq), np.abs(fftrec)))
+            self.frequencies = maxfreqs 
+            
         elif(_mode == "Window"):
             for record_index in range(0, self.frames_in_file):
-                window = list(self.windowed_rf_data.loc[record_index, :])
-                fftrec = list(sp.fft.rfft(window))
-                freq = list(sp.fft.fftfreq(window.__len__()) * self.sample_rate)
+                _record = _vtdf[record_index]
+                _recordmaxidx = _record.argmax()
+                if(_recordmaxidx < 512):
+                    _recordmaxidx = 512
+                    _winrecord = _record.loc[0:1023]
+                else:
+                    _winrecord = _record.loc[_recordmaxidx - self.saw_packet_window[0]:_recordmaxidx + self.saw_packet_window[1]]
+                fftrec = list(sp.fft.rfft(_winrecord.tolist()))
+                freq = list(sp.fft.fftfreq(_winrecord.__len__()) * self.sample_rate)
                 maxfreqs.append(freq[fftrec.index(max(fftrec))])
-
-            self.windowed_frequencies = maxfreqs 
+#                self.psd_fits.append(self.fit_gaussian_model(freq, fftrec))
+            self.frequencies = maxfreqs
         del _vt, _ts, _tsc, _tf, _tdf, _td
         
-        return self.full_frequencies
+        return self.frequencies
+
+    def compute_velocity(self, _spacing=25.0):
+        '''
+        compute_velocity(_spacing=25.0): Compute the velocity map with a given _spacing in microns.
+                                         Will populate the velocity_data property of the class.
+        '''
+        
+        _freqpd = pd.DataFrame(self.frequencies)
+        self.velocity_data = _freqpd * (_spacing * (1E-6)) #* self.dc_mask
+        
+        return self.velocity_data
+
+    def map_rf_voltage(self):
+        _vtdf = []
+        _vt, _ts, _tsc, _tf, _tdf, _td = tekwfm.read_wfm(self.rf_filename)
+        _vtdf = pd.DataFrame(_vt)
+        _record = []
+        for record_index in range(0, self.frames_in_file):
+            _maxvoltidx = _vtdf[record_index].idxmax()
+            _record.append(_vtdf.loc[_maxvoltidx, record_index])
+        
+        self.rf_voltage_data = pd.DataFrame(_record)
+        return self.rf_voltage_data
+
+    def gaussian_model(self, x, x0, y0, sigma):
+        p = [x0, y0, sigma]
+        return p[1] * np.exp(-(((x/1e8)-p[0])/p[1])**2)
+
+    def fit_gaussian_model(self, _psdfreqs, _psddata):
+        _p = [1., 1., 1.]
+        _psdfreqs = np.array(_psdfreqs)
+        _psddata = np.array(_psddata)
+        fit, tmp = sp.optimize.curve_fit(self.gaussian_model, _psdfreqs, _psddata, p0=_p)
+        return fit
+
+class Utilities:
+
+    def __init__(self):
+
+        pass
+
+    def gaussian(self, x, amp, cen, wid):
+        return amp * np.exp(-(x-cen)**2 / wid)
+
+    def window_data(self, _amplitudes, _frequencies, _winsize=16):
+        _absamps = np.abs(_amplitudes)
+        _absamparray = pd.DataFrame(_absamps)
+        _freqarray = pd.DataFrame(_frequencies)
+        _max = _absamparray.max()
+        _maxindex = _absamparray.idxmax()
+        _winmin = _maxindex - (_winsize/2)
+        _winmax = _maxindex + (_winsize/2)
+
+        return _absamparray[int(_winmin):int(_winmax)], _freqarray[int(_winmin):int(_winmax)]
+
+    def fit_gaussian(self, _winamps, _winfreqs):
+        _minfreq = float(_winfreqs.min())
+        _maxfreq = float(_winfreqs.max())
+
+
+        return
+    def fit_gaussian_to_normfft(self, _normdata, _frequencies):
+        _frequncies = pd.Series(_frequencies)
+        _minx = _frequencies.min()
+        _maxx = _frequncies.max()
+        _fitX = np.arange(float(_minx), float(_maxx), 1E6)
+        X = _frequencies
+        x = np.sum(X*_frequencies)/np.sum(_frequencies)
+        return _fitX, x
+
+        
+
+    
+
+        
