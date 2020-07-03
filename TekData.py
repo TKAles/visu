@@ -10,6 +10,7 @@ import numpy as np
 import scipy.signal
 import scipy as sp
 import pyfftw
+from multiprocessing import Pool
 class TekWaveForm:
     '''
         TekData: Data structure for waveforms captured from Tektronix MSO 5/6 Oscilloscopes
@@ -60,32 +61,35 @@ class TekWaveForm:
 
         # Clear out the temp variables from the .wfm file import to save RAM.
         del _vtdc, _tsdc, _tscdc, _tfdc, _tdfdc, _tddc, _vtdf
+        pyfftw.interfaces.cache.enable()
+
+        # 'monkey-patch' the pyfftw interface into scipy.fft
+        sp.fftpack = pyfftw.interfaces.scipy_fftpack
         
         return
-
-    def compute_mask(self):
-        self.dc_mask = self.mean_dc_level >= self.mask_threshold_voltage
-        return
-
+    '''
+    LEGACY FUNCTION
     def compute_fft(self, _mode="Window", _memory=False):
-        '''
+        
         compute_fft(_mode="Full|Window", _memory=False|True): Computes the FFT of the waveform 
                 for either the full record, or windowed record depending on mode. Will keep RF waveform
                 data in memory if you have the RAM to spare (VERY HUNGRY, YOU'VE BEEN WARNED).
-        '''
+        
         _vt, _ts, _tsc, _tf, _tdf, _td = tekwfm.read_wfm(self.rf_filename)
         _vtdf = pd.DataFrame(_vt)
         maxfreqs = []
         self.psd_fits = []
         if(_mode == "Full"):
             for record_index in range(0, self.frames_in_file):
-                fftrec = list(sp.fft.rfft(list(_vtdf[record_index])))
-                freq = list(sp.fft.fftfreq(fftrec.__len__()) * self.sample_rate)
+                fftrec = list(pyfftw.interfaces.scipy_fft.rfft(list(_vtdf[record_index]), 8192, 
+                         planner_effort='FFTW_MEASURE', threads=2))
+                freq = list(pyfftw.interfaces.scipy_fft.fftfreq(fftrec.__len__()) * self.sample_rate)
                 maxfreqs.append(freq[fftrec.index(max(fftrec))])
                 #self.psd_fits.append(self.fit_gaussian_model(np.abs(freq), np.abs(fftrec)))
             self.frequencies = maxfreqs 
             
         elif(_mode == "Window"):
+
             for record_index in range(0, self.frames_in_file):
                 _record = _vtdf[record_index]
                 _recordmaxidx = _record.argmax()
@@ -97,15 +101,79 @@ class TekWaveForm:
                 fftrec = list(sp.fft.rfft(_winrecord.tolist()))
                 freq = list(sp.fft.fftfreq(_winrecord.__len__()) * self.sample_rate)
                 maxfreqs.append(freq[fftrec.index(max(fftrec))])
-#                self.psd_fits.append(self.fit_gaussian_model(freq, fftrec))
+            # self.psd_fits.append(self.fit_gaussian_model(freq, fftrec))
             self.frequencies = maxfreqs
         del _vt, _ts, _tsc, _tf, _tdf, _td
         
         return self.frequencies
+    '''
+    def mp_compute_velocity(self, fft_data, spacing=0.25):
 
-    def compute_velocity(self, _spacing=25.0):
+        return
+
+    def mp_compute_dcvoltage(self, file_name=""):
+        if(file_name == ""):
+            file_name = self.dc_filename
+        # Read in the file_name and convert to Dataframe. Use mean() to get
+        # average of rows.
+        _vt, _ts, _tsc, _tf, _tdf, _td = tekwfm.read_wfm(file_name)
+        _vtdf = pd.DataFrame(_vt)
+        mean_dc = list(_vtdf.mean())
+        # Return DC dataframe
+        return mean_dc
+
+    def mp_compute_fft(self, file_name=""):
         '''
-        compute_velocity(_spacing=25.0): Compute the velocity map with a given _spacing in microns.
+        mp_compute_fft(file_name): mappable function to compute the pixel FFT for a given file.
+        '''
+        if(file_name == ""):
+            file_name = self.rf_filename
+
+        diag = False    # Diagnostic output flag
+        # Read in file and determine sample rate
+        _vt, _ts, _tsc, _tf, _tdf, _td = tekwfm.read_wfm(file_name)
+        sample_rate = int(1 / _tsc)
+
+        if(diag):
+            print("Loaded {0}".format(file_name))
+            print("Detected Sample Rate: {0}".format(sample_rate))
+
+        # Convert to DataFrame, retrieve the length of each waveform record
+        # and the number of records in the row file.
+        _vtdf = pd.DataFrame(_vt)
+        _recordlen, _numrecords = _vtdf.shape
+
+        if(diag):
+            print("Records: {0}\tLength: {1} points".format(_numrecords, _recordlen))
+
+        # Iterate through each waveform record and compute FFT, find frequency
+        # with highest power and select as pixel frequency.
+        # Window input to +/- 512 points around maximum voltage sample. If center is less
+        # than 512, default to record length of 0:1024
+        results = []
+        for record_idx in range(0, _numrecords):
+            _vtr = _vtdf[record_idx]
+            _vtidxmax = _vtr.argmax()
+            if(_vtidxmax < 512):
+                _vtidxmax = 512
+                _vts = _vtr.loc[0:1024]
+            else:
+                _min = _vtidxmax - 512
+                _max = _vtidxmax + 511
+                _vts = _vtr.loc[_min:_max]
+
+            _fftpower = pd.Series(list(sp.fft.rfft(list(_vts),  n=8192)))
+            _fftfreq = pd.Series(list(sp.fft.fftfreq(_fftpower.__len__())  * sample_rate))
+            _fftmax = _fftpower.argmax()
+            _fftmaxval = _fftfreq[_fftmax]
+            # Append to results 
+            results.append(_fftmaxval)
+        # Return list of frequencies for row.
+        return results
+
+    def compute_velocity(self, _spacing=12.5):
+        '''
+        compute_velocity(_spacing=12.5): Compute the velocity map with a given _spacing in microns.
                                          Will populate the velocity_data property of the class.
         '''
         
@@ -122,20 +190,7 @@ class TekWaveForm:
         for record_index in range(0, self.frames_in_file):
             _maxvoltidx = _vtdf[record_index].idxmax()
             _record.append(_vtdf.loc[_maxvoltidx, record_index])
-        
-        self.rf_voltage_data = pd.DataFrame(_record)
-        return self.rf_voltage_data
 
-    def gaussian_model(self, x, x0, y0, sigma):
-        p = [x0, y0, sigma]
-        return p[1] * np.exp(-(((x/1e8)-p[0])/p[1])**2)
-
-    def fit_gaussian_model(self, _psdfreqs, _psddata):
-        _p = [1., 1., 1.]
-        _psdfreqs = np.array(_psdfreqs)
-        _psddata = np.array(_psddata)
-        fit, tmp = sp.optimize.curve_fit(self.gaussian_model, _psdfreqs, _psddata, p0=_p)
-        return fit
 
 class Utilities:
 
