@@ -69,8 +69,8 @@ class TekMap:
 
         self.tekwfmclass = TekData.TekWaveForm(self.rf_filelist[0], self.dc_filelist[0])
 
-    def mp_assemble_dcmap(self, _plot=False):
-        _mpool = Pool()
+    def mp_assemble_dcmap(self, _threads=4, _plot=False):
+        _mpool = Pool(processes=_threads)
         _outputlist = list(_mpool.map(self.tekwfmclass.mp_compute_dcvoltage, self.dc_filelist))
         _outputdf = pd.DataFrame(_outputlist)
         _mpool.close()
@@ -84,9 +84,9 @@ class TekMap:
         return
     
 
-    def mp_assemble_fftmap(self, _plot=False):
+    def mp_assemble_fftmap(self, _threads=4, _plot=False):
         # Map the rf_filelist through the FFT function and store as rf_map
-        _mpool = Pool()
+        _mpool = Pool(processes=_threads)
         _outputlist = list(_mpool.map(
             self.tekwfmclass.mp_compute_fft, self.rf_filelist
         ))
@@ -95,6 +95,10 @@ class TekMap:
         _mpool.close()
         _mpool.join()
         
+        return
+        
+    def mp_assemble_velocitymap(self, _spacing=12.5E-6):
+        self.velocity_map = self.rf_map.multiply(_spacing)
         return
 
     def plot_fftmap(self, _limits=[80e6, 300e6], _color="gray"):
@@ -118,9 +122,6 @@ class TekMap:
                   y1+_margin))
         return
 
-    def mp_assemble_velocitymap(self, _spacing=12.5E-6):
-        self.velocity_map = self.rf_map.multiply(_spacing)
-        return
         
     def assemble_velocitymap(self, _spacing=12.5):
         _tempmap = []
