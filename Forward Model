@@ -1,0 +1,176 @@
+{
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "# Forward Model\n",
+    "### Thomas Ales | July 2020"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 1,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import numpy as np\n",
+    "import matplotlib.pyplot as plt"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 13,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "c11 = 163.6\n",
+    "c12 = 92.3\n",
+    "c13 = 67.92\n",
+    "c33 = 185.2\n",
+    "c44 = 47.05\n",
+    "density_gm_cm3 = 4.429\n",
+    "wenqi_ti_alpha_C = [[c11, c12, c13, 0, 0, 0], [c12, c11, c13, 0, 0, 0], [c13, c13, c33, 0, 0, 0],\n",
+    "                    [0, 0, 0, c44, 0, 0], [0, 0, 0, 0, c44, 0], [0, 0, 0, 0, 0, 2*(c11-c12)]]\n",
+    "\n",
+    "Cijkl = np.ndarray(shape=(6,6))\n",
+    "Cijkl[:] = wenqi_ti_alpha_C"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 60,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "input_euler_angles = (90.0, 0.0, 0.0)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 61,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "def get_rotmat_euler(_eangl):\n",
+    "    _rotmatl = [[np.cos(_eangl[0])*np.cos(_eangl[2]) - np.cos(_eangl[1])*np.sin(_eangl[0])*np.sin(_eangl[2]), -np.cos(_eangl[0])*np.sin(_eangl[2]), np.sin(_eangl[0])*np.sin(_eangl[1])],\n",
+    "    [np.cos(_eangl[2])*np.sin(_eangl[0]) + np.cos(_eangl[0])*np.cos(_eangl[1])*np.sin(_eangl[2]), np.cos(_eangl[0])*np.cos(_eangl[1])*np.cos(_eangl[2]) - np.sin(_eangl[0])*np.sin(_eangl[2]),\n",
+    "     -np.cos(_eangl[0])*np.sin(_eangl[1])],\n",
+    "    [np.sin(_eangl[1])*np.sin(_eangl[2]), np.cos(_eangl[2])*np.sin(_eangl[1]), np.cos(_eangl[1])]]\n",
+    "\n",
+    "    _rotmatn = np.ndarray(shape=(3,3))\n",
+    "    _rotmatn[:] = _rotmatl\n",
+    "    _mvec = np.array([_rotmatn[0,0], _rotmatn[1,0], _rotmatn[2,0]])\n",
+    "    _nvec = np.array([_rotmatn[2,0], _rotmatn[2,1], _rotmatn[2,2]])\n",
+    "    return _mvec, _nvec"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 62,
+   "metadata": {
+    "tags": []
+   },
+   "outputs": [
+    {
+     "output_type": "stream",
+     "name": "stdout",
+     "text": "VECTOR TEST OUTPUT:\nphi1:90.0000\tPhi:0.0000\tphi2:0.0000\n\n\nmvec: 0.0000, 1.0000, 0.0000\nnvec: 0.0000, 0.0000, 1.0000\n"
+    }
+   ],
+   "source": [
+    "testm, testn = get_rotmat_euler(np.radians(input_euler_angles))\n",
+    "print(\"VECTOR TEST OUTPUT:\\nphi1:{0:.4f}\\tPhi:{1:.4f}\\tphi2:{2:.4f}\\n\\n\".format(input_euler_angles[0], input_euler_angles[1], input_euler_angles[2]))\n",
+    "print(\"mvec: {0:.4f}, {1:.4f}, {2:.4f}\\nnvec: {3:.4f}, {4:.4f}, {5:.4f}\".format(testm[0], testm[1], testm[2], testn[0], testn[1], testn[2]))"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 70,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "def build_r(_mv, _nv, _cijkl):\n",
+    "    '''\n",
+    "        build_r(_mv, _nv, _cijkl): Build the 3x3 R matrix. Requires:\n",
+    "                                   _mv - m-vector\n",
+    "                                   _nv - n-vector\n",
+    "                                   _cijkl - stiffness matrix\n",
+    "                                   Returns - 3x3 ndarray rounded to six-decimals representing R\n",
+    "    '''\n",
+    "    r_matrix = np.ndarray(shape=(3,3))\n",
+    "    # Row 1\n",
+    "    r_matrix[0,0] = (_cijkl[0,0]*_mv[0]*_nv[0] + _cijkl[5,0]*_mv[1]*_nv[0] + _cijkl[4,0]*_mv[2]*_nv[0] + _cijkl[0,5]*_mv[0]*_nv[1] + _cijkl[5,5]*_mv[1]*_nv[1] +\n",
+    "                     _cijkl[4,5]*_mv[2]*_nv[1] + _cijkl[0,4]*_mv[0]*_nv[2] + _cijkl[5,4]*_mv[1]*_nv[2] + _cijkl[4,4]*_mv[2]*_nv[2])\n",
+    "    r_matrix[0,1] = (_cijkl[0,5]*_mv[0]*_nv[0] + _cijkl[5,5]*_mv[1]*_nv[0] + _cijkl[4,5]*_mv[2]*_nv[0] + _cijkl[0,1]*_mv[0]*_nv[1] + _cijkl[5,1]*_mv[1]*_nv[1] +\n",
+    "                     _cijkl[4,1]*_mv[2]*_nv[1] + _cijkl[0,3]*_mv[0]*_nv[2] + _cijkl[5,3]*_mv[1]*_nv[2] + _cijkl[5,4]*_mv[2]*_nv[2])\n",
+    "    r_matrix[0,2] = (_cijkl[0,4]*_mv[0]*_nv[0] + _cijkl[5,4]*_mv[1]*_nv[0] + _cijkl[5,5]*_mv[2]*_nv[0] + _cijkl[0,3]*_mv[0]*_nv[1] + _cijkl[5,3]*_mv[1]*_nv[1] +\n",
+    "                     _cijkl[4,3]*_mv[2]*_nv[1] + _cijkl[0,2]*_mv[0]*_nv[2] + _cijkl[5,2]*_mv[1]*_nv[2] + _cijkl[4,2]*_mv[2]*_nv[2])\n",
+    "    # Row 2\n",
+    "    r_matrix[1,0] = (_cijkl[5,0]*_mv[0]*_nv[0] + _cijkl[1,0]*_mv[1]*_nv[0] + _cijkl[3,0]*_mv[2]*_nv[0] + _cijkl[5,5]*_mv[0]*_nv[1] + _cijkl[1,5]*_mv[1]*_nv[1] +\n",
+    "                     _cijkl[3,5]*_mv[2]*_nv[1] + _cijkl[5,4]*_mv[0]*_nv[2] + _cijkl[1,4]*_mv[1]*_nv[2] + _cijkl[3,4]*_mv[2]*_nv[2])\n",
+    "    r_matrix[1,1] = (_cijkl[5,5]*_mv[0]*_nv[0] + _cijkl[1,5]*_mv[1]*_nv[0] + _cijkl[3,5]*_mv[2]*_nv[0] + _cijkl[5,2]*_mv[0]*_nv[1] + _cijkl[1,1]*_mv[1]*_nv[1] +\n",
+    "                     _cijkl[3,1]*_mv[2]*_nv[1] + _cijkl[5,3]*_mv[0]*_nv[2] + _cijkl[1,3]*_mv[1]*_nv[2] + _cijkl[3,3]*_mv[2]*_nv[2])\n",
+    "    r_matrix[1,2] = (_cijkl[5,4]*_mv[0]*_nv[0] + _cijkl[1,4]*_mv[1]*_nv[0] + _cijkl[3,4]*_mv[2]*_nv[0] + _cijkl[5,3]*_mv[0]*_nv[1] + _cijkl[1,3]*_mv[1]*_nv[1] +\n",
+    "                     _cijkl[3,3]*_mv[2]*_nv[1] + _cijkl[5,2]*_mv[0]*_nv[2] + _cijkl[1,2]*_mv[1]*_nv[2] + _cijkl[3,2]*_mv[2]*_nv[2])\n",
+    "    # Row 3\n",
+    "    r_matrix[2,0] = (_cijkl[4,0]*_mv[0]*_nv[0] + _cijkl[3,0]*_mv[1]*_nv[0] + _cijkl[2,0]*_mv[2]*_nv[0] + _cijkl[4,5]*_mv[0]*_nv[1] + _cijkl[3,5]*_mv[1]*_nv[1] +\n",
+    "                     _cijkl[2,5]*_mv[2]*_nv[1] + _cijkl[4,4]*_mv[0]*_nv[2] + _cijkl[3,4]*_mv[1]*_nv[2] + _cijkl[2,4]*_mv[2]*_nv[2])\n",
+    "    r_matrix[2,1] = (_cijkl[4,5]*_mv[0]*_nv[0] + _cijkl[3,5]*_mv[1]*_nv[0] + _cijkl[2,5]*_mv[2]*_nv[0] + _cijkl[4,1]*_mv[0]*_nv[1] + _cijkl[3,1]*_mv[1]*_nv[1] +\n",
+    "                     _cijkl[2,1]*_mv[2]*_nv[1] + _cijkl[4,3]*_mv[0]*_nv[2] + _cijkl[3,3]*_mv[1]*_nv[2] + _cijkl[2,3]*_mv[2]*_nv[2])\n",
+    "    r_matrix[2,2] = (_cijkl[4,4]*_mv[0]*_nv[0] + _cijkl[3,4]*_mv[1]*_nv[0] + _cijkl[2,4]*_mv[2]*_nv[0] + _cijkl[4,3]*_mv[0]*_nv[1] + _cijkl[3,3]*_mv[1]*_nv[1] +\n",
+    "                     _cijkl[2,3]*_mv[2]*_nv[1] + _cijkl[4,2]*_mv[0]*_nv[2] + _cijkl[3,2]*_mv[1]*_nv[2] + _cijkl[2,2]*_mv[2]*_nv[2])\n",
+    "    \n",
+    "    # Return rounded ndarray\n",
+    "    return np.around(r_matrix, decimals=6)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 71,
+   "metadata": {
+    "tags": []
+   },
+   "outputs": [
+    {
+     "output_type": "stream",
+     "name": "stdout",
+     "text": "R-MATRIX:\n[[ 0.    0.    0.  ]\n [ 0.    0.   67.92]\n [ 0.   47.05  0.  ]]\n"
+    }
+   ],
+   "source": [
+    "r_test = build_r(testm, testn, Cijkl)\n",
+    "print(\"R-MATRIX:\")\n",
+    "print(r_test)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  }
+ ],
+ "metadata": {
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.7.6-final"
+  },
+  "orig_nbformat": 2,
+  "kernelspec": {
+   "name": "python3",
+   "display_name": "Python 3"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 2
+}

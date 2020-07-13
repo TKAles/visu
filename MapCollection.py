@@ -7,41 +7,42 @@ June 2020
 '''
 
 import MapData
-from tqdm.notebook import tqdm
 class TekCollection:
 
-    map_collections = []
+    
 
-    def __init__(self, _datadir, _metadata):
+    def __init__(self):
 
         self.data_directories = []
-        
-        for _dir in tqdm(_datadir):
-            self.data_directories.append(_dir)
-
-        self.metadata = _metadata
+        self.scans = []
         return
 
-    def initalize_maps(self):
-        for currentmap in tqdm(self.data_directories):
-            self.map_collections.append(MapData.TekMap(currentmap))
-        
-        return
+    def initalize_data(self, datadir, index):
+        if(self.data_directories.__len__() == 0):
+            self.data_directories = [datadir]
+            self.scans = [MapData.TekMap(self.data_directories[index])]
+            print("inital directory loaded")
+        else:
+            self.data_directories.append(datadir)
+            self.scans.append(MapData.TekMap(self.data_directories[-1]))
+            print("appended map {0} to scans list".format(self.data_directories.__len__()))
+        return        
 
+        
     def process_dc(self):
-        for current in tqdm(self.map_collections):
+        for current in self.map_collections:
             current.mp_assemble_dcmap()
             current.compute_dcmask()
         return
 
     def process_fft(self):
-        for current in tqdm(self.map_collections):
+        for current in self.map_collections:
             current.mp_assemble_fftmap()
         
         return
 
     def process_velocity(self):
-        for current in tqdm(self.map_collections):
+        for current in self.map_collections:
             current.mp_assemble_velocitymap()
 
         return

@@ -118,11 +118,11 @@ class TekWaveForm:
         # average of rows.
         _vt, _ts, _tsc, _tf, _tdf, _td = tekwfm.read_wfm(file_name)
         _vtdf = pd.DataFrame(_vt)
-        mean_dc = list(_vtdf.mean())
+        mean_dc = _vtdf.mean()
         # Return DC dataframe
         return mean_dc
 
-    def mp_compute_fft(self, file_name=""):
+    def mp_compute_fft(self, file_name="", _fftsize=int(4096)):
         '''
         mp_compute_fft(file_name): mappable function to compute the pixel FFT for a given file.
         '''
@@ -141,6 +141,8 @@ class TekWaveForm:
         # Convert to DataFrame, retrieve the length of each waveform record
         # and the number of records in the row file.
         _vtdf = pd.DataFrame(_vt)
+        
+        
         _recordlen, _numrecords = _vtdf.shape
 
         if(diag):
@@ -152,18 +154,18 @@ class TekWaveForm:
         # than 512, default to record length of 0:1024
         results = []
         for record_idx in range(0, _numrecords):
-            _vtr = _vtdf[record_idx]
+            _vtr = np.array(_vtdf[record_idx])
             _vtidxmax = _vtr.argmax()
             if(_vtidxmax < 512):
                 _vtidxmax = 512
-                _vts = _vtr.loc[0:1024]
+                _vts = _vtr[0:1024]
             else:
                 _min = _vtidxmax - 512
                 _max = _vtidxmax + 511
-                _vts = _vtr.loc[_min:_max]
+                _vts = _vtr[_min:_max]
 
-            _fftpower = pd.Series(list(sp.fft.rfft(list(_vts),  n=8192)))
-            _fftfreq = pd.Series(list(sp.fft.fftfreq(_fftpower.__len__())  * sample_rate))
+            _fftpower = np.array(sp.fft.rfft(_vts, n=_fftsize))
+            _fftfreq = sp.fft.fftfreq(_fftpower.__len__())  * sample_rate
             _fftmax = _fftpower.argmax()
             _fftmaxval = _fftfreq[_fftmax]
             # Append to results 
