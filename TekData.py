@@ -122,7 +122,7 @@ class TekWaveForm:
         # Return DC dataframe
         return mean_dc
 
-    def mp_compute_fft(self, file_name="", _fftsize=int(4096)):
+    def mp_compute_fft(self, file_name="", _fftsize=int(8192)):
         '''
         mp_compute_fft(file_name): mappable function to compute the pixel FFT for a given file.
         '''

@@ -315,7 +315,7 @@ class SRASDataset():
                 wfmfreqs = sp.fftpack.fftfreq(wfmfft.__len__()) * s_rate
                 frequencies.append(wfmfreqs[wfmfft.index(max(wfmfft))])
             temp_rf_map.append(frequencies)
-        
+
         self.fft_map = pd.DataFrame(temp_rf_map) * self.dc_mask
         self.fft_ready = True
 

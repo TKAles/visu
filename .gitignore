@@ -8,7 +8,6 @@
 __pycache__/
 *.py[cod]
 *$py.class
-
 # C extensions
 *.so
 
@@ -80,6 +79,7 @@ docs/_build/
 # PyBuilder
 target/
 
+!POC/*
 # Jupyter Notebook
 .ipynb_checkpoints
 

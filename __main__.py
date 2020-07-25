@@ -5,15 +5,15 @@ import numpy as np
 import functools
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_qt5agg import (
-    FigureCanvasQTAgg as FigureCanvas,
-    NavigationToolbar2QT as NavigationToolbar)
+    FigureCanvasQTAgg as FigureCanvas)
 from PyQt5 import QtWidgets, uic
 
 import MapCollection
 
-ui_path = "C:\\Users\\tka\\source\\repos\\visu\\"
+ui_path = '/home/tka/source/visu/'
 ui_file = 'visu2.ui'
 widget_file = 'visu2_worktab.ui'
+
 
 class Ui(QtWidgets.QMainWindow):
 
@@ -21,12 +21,11 @@ class Ui(QtWidgets.QMainWindow):
         super(Ui, self).__init__()
         os.chdir(ui_path)
         uic.loadUi(ui_file, self)
-        
         self.tab_objects = [uic.loadUi(widget_file)]
-        
         self.show()
 
-        # Create the lists that contain each figure in each tab + other supporting stuff
+        # Create the lists that contain each figure in
+        # each tab + other supporting stuff
         self.tab_figures = [Figure()]
         self.canvas = []
         self.workspace_dir = [' ']
@@ -40,10 +39,12 @@ class Ui(QtWidgets.QMainWindow):
         self.tab_mainframe.setCurrentIndex(0)
         self.tab_axes = [self.tab_figures[0].add_subplot('111')]
         self.tab_axes[0].plot(np.random.rand(5), '.')
-        self.tab_axes[0].text(0.5, 0.5, "No Data Loaded", fontsize='x-large', 
-                              horizontalalignment='center', transform=self.tab_axes[0].transAxes)
+        self.tab_axes[0].text(0.5, 0.5, "No Data Loaded",
+                              fontsize='x-large',
+                              horizontalalignment='center',
+                              transform=self.tab_axes[0].transAxes)
         self.add_mpl(0, self.tab_figures[0])
-        
+
         # Inital UI setup
         self.init_angle_tab(0)
 
@@ -52,12 +53,11 @@ class Ui(QtWidgets.QMainWindow):
 
         # Create initial MapCollection object
         self.maps = MapCollection.TekCollection()
-        
 
     def add_mpl(self, tab_index, fig):
         '''
-        Ui.addmpl(tab_index, fig): Takes a tab index, and figure, then plots the figure 
-                                   into the tab.
+        Ui.addmpl(tab_index, fig): Takes a tab index, and figure, then plots
+        the figure into the tab.
         '''
         _canvas = FigureCanvas(fig)
         _canvas.minimumWidth = 900
@@ -65,20 +65,22 @@ class Ui(QtWidgets.QMainWindow):
         self.tab_objects[tab_index].gfx_pane_layout.addWidget(_canvas)
         _canvas.draw()
         self.canvas.append(_canvas)
-        return 
-        
+
+        return
+
     def remove_mpl(self, tab_index):
         '''
         Ui.remove_mpl(tab_index): Removes whatever tab is passed to it.
         '''
-        self.tab_objects[tab_index].gfx_pane_layout.removeWidget(self.canvas[tab_index])
+        self.tab_objects[tab_index].gfx_pane_layout.removeWidget(
+            self.canvas[tab_index])
         self.canvas[tab_index].close()
         return
 
     def add_angle_tab(self, index):
         '''
-        Ui.add_angle_tab(): Catches the click on the Add Angle tab and creates a new copy of the tab.
-                            Then appends it to the end of the stack.
+        Ui.add_angle_tab(): Catches the click on the Add Angle tab and creates
+        a new copy of the tab. Then appends it to the end of the stack.
         '''
         # Switch to directory with ui files in it.
         os.chdir(ui_path)
@@ -88,13 +90,16 @@ class Ui(QtWidgets.QMainWindow):
         if(index == _tabcount):
             self.tab_objects.append(uic.loadUi(widget_file))
             self.tab_mainframe.insertTab(_tabcount,
-                                        self.tab_objects[_tabcount], _tabstring)
+                                         self.tab_objects[_tabcount],
+                                         _tabstring)
             self.tab_mainframe.setCurrentIndex(_tabcount)
             self.tab_figures.append(Figure())
             self.tab_axes.append(self.tab_figures[-1].add_subplot('111'))
             self.tab_axes[-1].plot(np.random.rand(5), '.')
-            self.tab_axes[-1].text(0.5, 0.5, "No Data Loaded", fontsize='x-large', 
-                              horizontalalignment='center', transform=self.tab_axes[-1].transAxes)
+            self.tab_axes[-1].text(0.5, 0.5, "No Data Loaded",
+                                   fontsize='x-large',
+                                   horizontalalignment='center',
+                                   transform=self.tab_axes[-1].transAxes)
             self.add_mpl(_tabcount, self.tab_figures[-1])
             self.workspace_dir.append(' ')
             self.data_loaded.append(False)
@@ -102,12 +107,12 @@ class Ui(QtWidgets.QMainWindow):
             self.fft_processed.append(False)
             self.init_angle_tab(_tabcount)
 
-
         return
 
     def init_angle_tab(self, index):
         '''
-        Ui.init_angle_tab(index): Connects all common signals and slots for a given tab_index.
+        Ui.init_angle_tab(index): Connects all common signals and slots
+                                  for a given tab_index.
         '''
         # disable buttons except for load data or load previous data
         print("initializing index {0}".format(index))
@@ -136,25 +141,30 @@ class Ui(QtWidgets.QMainWindow):
 
         # set default properties
         self.tab_objects[index].btn_load.clicked.connect(
-                                functools.partial(self.select_workspace_folder, index))
+                                functools.partial(self.select_workspace_folder,
+                                                  index))
         return
 
     def select_workspace_folder(self, tab_index):
         '''
-        Ui.select_workspace_folder(tab_index): Pops a directory dialog and sets the directory
-            in the workspace_dir[] list by tab_index.
+        Ui.select_workspace_folder(tab_index): Pops a directory dialog and
+        sets the directory in the workspace_dir[] list by tab_index.
         '''
-        _selectedpath = str(QtWidgets.QFileDialog.getExistingDirectory(self, 
+        _selectedpath = str(QtWidgets.QFileDialog.getExistingDirectory(self,
                             "Select Workspace Directory..."))
 
         # Set the returned path to the proper position in the list.
         self.workspace_dir[tab_index] = _selectedpath
 
-        # Update label with current path, and change the button to 'Change Directory'
-        self.tab_objects[tab_index].lbl_dataset_dir.setText(self.workspace_dir[tab_index] + '/')
-        self.tab_objects[tab_index].btn_load.setText("Change Dataset Directory")
+        # Update label with current path, and change
+        # the button to 'Change Directory'
+        self.tab_objects[tab_index].lbl_dataset_dir.setText(
+            self.workspace_dir[tab_index] + '/')
+        self.tab_objects[tab_index].btn_load.setText(
+            "Change Dataset Directory")
         self.maps.initalize_data(self.workspace_dir[tab_index], tab_index)
         return
+
 
 app = QtWidgets.QApplication(sys.argv)
 window = Ui()
