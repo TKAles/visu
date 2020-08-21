@@ -1,0 +1,6 @@
+{
+    "python.pythonPath": "/home/tka/miniconda3/envs/visuenv/bin/python",
+    "terminal.integrated.rendererType": "canvas",
+    "terminal.integrated.splitCwd": "workspaceRoot",
+    "terminal.explorerKind": "external"
+}
