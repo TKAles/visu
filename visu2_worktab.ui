@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>1132</width>
-    <height>920</height>
+    <height>927</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -45,20 +45,6 @@
         <widget class="QPushButton" name="btn_load_prev">
          <property name="text">
           <string>Load saved dataset</string>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="Line" name="line">
-         <property name="orientation">
-          <enum>Qt::Horizontal</enum>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="QPushButton" name="btn_prep_workspace">
-         <property name="text">
-          <string>Load data into workspace</string>
          </property>
         </widget>
        </item>
@@ -772,10 +758,20 @@
      <item>
       <layout class="QVBoxLayout" name="gfx_pane_layout">
        <item>
+        <widget class="QWidget" name="wnav" native="true">
+         <property name="maximumSize">
+          <size>
+           <width>16777215</width>
+           <height>1</height>
+          </size>
+         </property>
+        </widget>
+       </item>
+       <item>
         <widget class="QWidget" name="widget" native="true">
          <property name="minimumSize">
           <size>
-           <width>900</width>
+           <width>1000</width>
            <height>0</height>
           </size>
          </property>

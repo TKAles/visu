@@ -48,7 +48,7 @@ class TekMap:
         self.fft_map = []
         self.velocity_map = []
         self.waveforms = []
-        self.thresholddc = 0.100
+        self.thresholddc = 0.050
         self.metadata = {"acq_angle": 0,
                          "x_start": 0,
                          "y_start": 0,

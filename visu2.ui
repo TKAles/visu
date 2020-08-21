@@ -44,11 +44,53 @@
      <x>0</x>
      <y>0</y>
      <width>1200</width>
-     <height>21</height>
+     <height>23</height>
     </rect>
    </property>
+   <widget class="QMenu" name="menuProjects">
+    <property name="title">
+     <string>Projects</string>
+    </property>
+    <addaction name="action_reset_dataset"/>
+    <addaction name="action_load_dataset"/>
+    <addaction name="action_save_dataset"/>
+   </widget>
+   <widget class="QMenu" name="menuOrientation">
+    <property name="title">
+     <string>Orientation</string>
+    </property>
+    <addaction name="action_select_modelfile"/>
+    <addaction name="action_fusemap"/>
+   </widget>
+   <addaction name="menuProjects"/>
+   <addaction name="menuOrientation"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
+  <action name="action_reset_dataset">
+   <property name="text">
+    <string>Create &amp;New Dataset</string>
+   </property>
+  </action>
+  <action name="action_load_dataset">
+   <property name="text">
+    <string>&amp;Load Existing Dataset</string>
+   </property>
+  </action>
+  <action name="action_save_dataset">
+   <property name="text">
+    <string>&amp;Save Current Dataset</string>
+   </property>
+  </action>
+  <action name="action_select_modelfile">
+   <property name="text">
+    <string>&amp;Select Model File</string>
+   </property>
+  </action>
+  <action name="action_fusemap">
+   <property name="text">
+    <string>Fuse Project into Orientation Map</string>
+   </property>
+  </action>
  </widget>
  <resources/>
  <connections/>
