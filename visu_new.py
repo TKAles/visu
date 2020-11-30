@@ -81,7 +81,7 @@ class Ui(QMainWindow):
         self.current_tabs[tab_index].plot_fft_map_button.clicked.connect(partial(self.viewFFT, tab_index))
         self.current_tabs[tab_index].plot_fft_map_button.setEnabled(False)
         self.current_tabs[tab_index].patch_spacing_textedit.editingFinished.connect(partial(self.updateSAWSize, tab_index))
-        self.current_tabs[tab_index].plot_velocity_map_button.clicked.connect(partial(self.noFunctionalityDialog, tab_index))
+        self.current_tabs[tab_index].plot_velocity_map_button.clicked.connect(partial(self.viewVelocity, tab_index))
         self.current_tabs[tab_index].saw_grating_angle_lineedit.editingFinished.connect(partial(self.noFunctionalityDialog, tab_index))
 
     def addmpl(self, tab_index, fig):
@@ -128,6 +128,7 @@ class Ui(QMainWindow):
             self.current_tabs[tab_number].plot_dc_intensity_button.setEnabled(True)
             self.current_tabs[tab_number].plot_sample_mask_button.setEnabled(True)
             self.current_tabs[tab_number].plot_fft_map_button.setEnabled(True)
+            self.current_tabs[tab_number].scan_directory_label.setText(self.datasets[tab_number].data_directory)
 
         except Exception:
             
@@ -147,20 +148,28 @@ class Ui(QMainWindow):
 
         if(15 < parsed_value < 500):
             self.current_tabs[tab_number].plot_velocity_map_button.setEnabled(True)
+            self.datasets[tab_number].wavelength = parsed_value * (10E-6)
         else:
             self.current_tabs[tab_number].plot_velocity_map_button.setEnabled(False)
 
-    def viewDCMap(self, tab_number):
+    def viewDCMap(self, tab_number, _vmin=0.06, _vmax=0.10):
 
         if(self.datasets[tab_number].dc_ready == False):
             self.datasets[tab_number].process_dc()
         self.rmmpl(tab_number)
         self.system_figures[tab_number] = plt.Figure(figsize=[10,10])
         self.system_figure_axes[tab_number] = self.system_figures[tab_number].add_subplot("111")
-        self.system_figure_axes[tab_number].imshow(
-            self.datasets[tab_number].dc_map, 
+        colorbar_mappable = self.system_figure_axes[tab_number].imshow(
+            self.datasets[tab_number].dc_map, cmap='viridis',
             aspect=self.datasets[tab_number].number_of_records/self.datasets[tab_number].dc_files.__len__()
             )
+        colorbar_mappable.set_clim(_vmin, _vmax)
+        colorbar_object = self.system_figures[tab_number].colorbar(colorbar_mappable)
+        colorbar_object.set_label("DC Bias Voltage [V]")
+        
+        self.system_figure_axes[tab_number].set_xlabel("Scan Direction")
+        self.system_figure_axes[tab_number].set_ylabel("Stepover Direction")
+        self.system_figures[tab_number].suptitle("DC Bias Voltage Map, Angle {0}".format(tab_number))
         self.addmpl(tab_number, self.system_figures[tab_number])
         return
 
@@ -175,22 +184,43 @@ class Ui(QMainWindow):
             self.datasets[tab_number].dc_mask, 
             aspect=self.datasets[tab_number].number_of_records/self.datasets[tab_number].dc_files.__len__()
         )
+        self.system_figure_axes[tab_number].set_xlabel("Scan Direction")
+        self.system_figure_axes[tab_number].set_ylabel("Stepover Direction")
+        self.system_figures[tab_number].suptitle("DC Threshold Mask, Angle {0}, Cutoff: {1}V".format(tab_number, self.datasets[tab_number].mask_voltage))
         self.addmpl(tab_number, self.system_figures[tab_number])
         return
 
-    def viewFFT(self, tab_number):
+    def viewFFT(self, tab_number, _freqmin=60E6, _freqmax=250E6):
         if(self.datasets[tab_number].fft_ready == False):
             self.datasets[tab_number].process_fft()
         
         self.rmmpl(tab_number)
         self.system_figures[tab_number] = plt.Figure(figsize=[10,10])
         self.system_figure_axes[tab_number] = self.system_figures[tab_number].add_subplot("111")
+        colorbar_mappable = self.system_figure_axes[tab_number].imshow(
+            self.datasets[tab_number].fft_map, vmin=_freqmin, vmax=_freqmax, cmap='viridis',
+            aspect=self.datasets[tab_number].number_of_records/self.datasets[tab_number].dc_files.__len__()
+        )
+        self.system_figure_axes[tab_number].set_xlabel("Scan Direction")
+        self.system_figure_axes[tab_number].set_ylabel("Stepover Direction")
+        self.system_figures[tab_number].suptitle("Frequency Map, Angle {0}".format(tab_number))
+        colorbar_object = self.system_figures[tab_number].colorbar(colorbar_mappable)
+        colorbar_object.set_label("FFT Dominant Frequency [Hz]")
+        self.addmpl(tab_number, self.system_figures[tab_number])
+        return
+    
+    def viewVelocity(self, tab_number):
+        if(self.datasets[tab_number].velocity_ready == False):
+            self.datasets[tab_number].process_velocity()
+        self.rmmpl(tab_number)
+        self.system_figures[tab_number] = plt.Figure(figsize=[10,10])
+        self.system_figure_axes[tab_number] = self.system_figures[tab_number].add_subplot("111")
         self.system_figure_axes[tab_number].imshow(
-            self.datasets[tab_number].fft_map, 
+            self.datasets[tab_number].vel_map, 
             aspect=self.datasets[tab_number].number_of_records/self.datasets[tab_number].dc_files.__len__()
         )
         self.addmpl(tab_number, self.system_figures[tab_number])
-        return
+
         
 class SRASDataset():
     
@@ -214,8 +244,9 @@ class SRASDataset():
         self.dc_map = pd.DataFrame()
         self.dc_mask = pd.DataFrame()
         self.fft_map = pd.DataFrame()
-        self.fft_spd_map = pd.DataFrame()
+        self.vel_map = pd.DataFrame()
 
+        self.wavelength = 0
 
     @property        
     def data_directory(self):
@@ -288,6 +319,7 @@ class SRASDataset():
                         image matrix. Also computes the mask according to the mask_threshold.
                         mask_threshold is set to 80mV by default, but can be overridden.
         """
+        self.mask_voltage = mask_threshold
         temp_dc_map = []
         for current_dc in self.dc_files:
             _vt, _ts, _tsc, _tf, _tdf, _td = tekwfm.read_wfm(current_dc)    
@@ -318,6 +350,12 @@ class SRASDataset():
         
         self.fft_map = pd.DataFrame(temp_rf_map) * self.dc_mask
         self.fft_ready = True
+
+    def process_velocity(self):
+        self.vel_map = self.fft_map * self.wavelength
+        self.velocity_ready = True
+        
+        
 
 app = QApplication(sys.argv)
 window = Ui()
