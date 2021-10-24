@@ -1,0 +1,6 @@
+{
+    "python.pythonPath": "/home/tka/anaconda3/bin/python",
+    "terminal.integrated.rendererType": "canvas",
+    "terminal.integrated.splitCwd": "workspaceRoot",
+    "terminal.explorerKind": "external"
+}
