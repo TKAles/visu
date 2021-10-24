@@ -1,5 +1,5 @@
 {
-    "python.pythonPath": "/home/tka/anaconda3/bin/python",
+    "python.pythonPath": "C:\\Users\\tka\\anaconda3\\envs\\visuenv\\python.exe",
     "terminal.integrated.rendererType": "canvas",
     "terminal.integrated.splitCwd": "workspaceRoot",
     "terminal.explorerKind": "external"
