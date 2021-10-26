@@ -4,9 +4,17 @@
 
     VISU with support for 'new data' format.
 '''
-from PyQt5 import QtWidgets, uic
+import PyQt5
+from matplotlib import gridspec
+from matplotlib.backends.backend_qt5agg import (
+    FigureCanvasQTAgg as FigureCanvas,
+    NavigationToolbar2QT as NavigationToolbar
+)
+from matplotlib.figure import Figure
+from PyQt5 import QtWidgets, QtGui, uic
 
 from functools import partial
+import os
 import sys
 
 ui_file = './visu.ui'
@@ -18,6 +26,11 @@ class Ui(QtWidgets.QMainWindow):
         uic.loadUi(ui_file, self)
         self.show()
         self.default_element_state()
+        self.tab_objects = []
+        self.canvas_objects = []
+        self.plot_navigation_objects = []
+        self.create_figure()
+        
 
     def default_element_state(self):
         '''
@@ -47,11 +60,16 @@ class Ui(QtWidgets.QMainWindow):
         self.scan_speed_text.setEnabled(False)
         self.laser_frequency_text.setEnabled(False)
         self.angle_spacing_text.setEnabled(False)
-        # Scan Toolbar
-        self.move_scan_button.setEnabled(False)
-        self.rotate_scan_button.setEnabled(False)
-        self.zoom_scan_button.setEnabled(False)
+        
 
+    def create_figure(self):
+        self.tab_objects.append(uic.loadUi('./visu_gfxpane.ui'))
+        self.canvas_objects.append(FigureCanvas())
+        self.plot_navigation_objects.append(NavigationToolbar(self.canvas_objects[-1], self))
+        self.tab_objects[-1].gfx_pane.addWidget(self.canvas_objects[-1])
+        self.tab_objects[-1].gfx_pane.addWidget(self.plot_navigation_objects[-1])
+        self.scan_collection_tabs.addTab(self.tab_objects[-1], 'Test Tab')
+        
 
 
 if __name__ == '__main__':
