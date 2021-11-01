@@ -44,6 +44,10 @@ class VisuScanCollection:
         os.chdir(self.path_to_files)
 
         
+        # Repeatedly cycle through the glob list while incrementing
+        # scan_count to seperate out each individual angle scan
+        # in the directory. Append each entry to its respective
+        # file listing.
         while scanning == True:
             temp_file_list_rf = []
             temp_file_list_dc = []
@@ -58,13 +62,23 @@ class VisuScanCollection:
                 scan_count = scan_count + 1
                 self.dc_files.append(temp_file_list_dc)
                 self.rf_files.append(temp_file_list_rf)
+            # When the file list length is zero, thats the end of the
+            # collection.
             elif(temp_file_list_rf.__len__() == 0):
                 scanning = False
 
-        self.angle_increment = 180 / self.dc_files.__len__()        
-            
+        self.number_of_scans = scan_count
+        # Figure out nominal angle spacing based on # of scans.
+        self.angle_increment = int(180 / self.number_of_scans)
+
+        # Create TekMaps but rewrite the rf and dc filelist after it
+        # initializes. 
+        # TODO: Remove auto-populate on object creation from object.
         for idx in range(0, self.dc_files.__len__()):
-            self.scan_collection.append(mapdat.TekData(''))
+            self.scan_collection.append(mapdat.TekMap(self.path_to_files))
             self.scan_collection[-1].rf_filelist = self.rf_files[idx]
             self.scan_collection[-1].dc_filelist = self.dc_files[idx]
         return
+        
+    def nono(self):
+        pass

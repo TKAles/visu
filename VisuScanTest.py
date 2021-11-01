@@ -9,7 +9,7 @@ import VisuScan as vs
 
 print('VisuScanCollection Data Test...\n\n')
 test_object = vs.VisuScanCollection()
-test_object.path_to_files = 'G:\\MURI\\WaveformsLoRes\\'
+test_object.path_to_files = 'D:\\MURI Waveforms\\'
 print('Data path set to: {0}\n'.format(test_object.path_to_files))
 print('Attempting Directory Parse...\n')
 test_object.parse_directory()
@@ -22,3 +22,7 @@ for idx, flist in enumerate(test_object.rf_files):
     ))
 
 print('Angle increment set to {0} degrees.'.format(test_object.angle_increment))
+
+print('DC List of TekMap 0 is {0} entries'.format(
+    test_object.scan_collection[0].dc_filelist.__len__()
+))
