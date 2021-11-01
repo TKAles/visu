@@ -31,6 +31,9 @@ class VisuScanCollection:
         self.scan_coords = []
         self.scan_speed = 100.0
         self.laser_frequency = 2000.0
+
+        self.dc_map_progress = 0.0
+        self.rf_map_progress = 0.0
         
     def parse_directory(self):
         '''
@@ -80,5 +83,10 @@ class VisuScanCollection:
             self.scan_collection[-1].dc_filelist = self.dc_files[idx]
         return
         
-    def nono(self):
-        pass
+    def assemble_dc_maps(self):
+        for x in range(0, self.number_of_scans):
+            print('assembling map {0}'.format(x))
+            self.scan_collection[x].mp_assemble_dcmap()
+            self.dc_map_progress = x
+        print('assembly done')
+        return

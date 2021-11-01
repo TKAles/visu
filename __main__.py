@@ -17,8 +17,10 @@ from PyQt5 import QtWidgets, QtGui, uic
 from PyQt5.QtCore import pyqtSlot
 
 from functools import partial
+import multiprocessing
 import os
 import sys
+import time
 
 import VisuScan as vs
 
@@ -36,10 +38,15 @@ class Ui(QtWidgets.QMainWindow):
         self.tab_objects = []
         self.canvas_objects = []
         self.plot_navigation_objects = []
-        self.create_figure()
+        self.dc_figures = []
+        self.dc_axes = []
+        self.rf_figures = []
+        self.rf_axes = []
         self.load_wfm_dataset_button.clicked.connect(self.wfm_load)
         self.process_dc_button.clicked.connect(self.ui_process_dc)
-        self.gfx_ui = 'C:\\Users\\tka\\source\\repos\\visu\\visu_gfxpane.ui'
+        self.gfx_ui = os.getcwd() + '\\visu_gfxpane.ui'
+        self.gfx_progress = os.getcwd() + '\\visu_progress.ui'
+
     def default_element_state(self):
         '''
         default_element_state: Disables all UI elements excep the Load WFM Dataset
@@ -80,11 +87,15 @@ class Ui(QtWidgets.QMainWindow):
 
     
     def wfm_load(self):
+        '''
+        wfm_load:   Process to setup the VisuScan object with the scans grouped by
+                    angle as individual map objects.
+        '''
         self.scanobj.path_to_files = QtWidgets.QFileDialog.getExistingDirectory(
             None, 'Select Directory', 'C:\\'
         )
         self.scanobj.parse_directory()
-        print('Parse Completed.')
+        # Put up message box showing # of scans and ask if would like to continue
         parseBox = QtWidgets.QMessageBox()
         parseBox.setIcon(QtWidgets.QMessageBox.Information)
         parseBox.setWindowTitle('Directory Load Results')
@@ -97,11 +108,13 @@ class Ui(QtWidgets.QMainWindow):
         parseBox.setStandardButtons(QtWidgets.QMessageBox.Yes | 
                                     QtWidgets.QMessageBox.No)
         response = parseBox.exec()
+        # If Yes, continue loading object.
         if response == QtWidgets.QMessageBox.Yes:
             self.scan_collection_tabs.removeTab(2)
             self.scan_collection_tabs.removeTab(1)
             self.tab_objects = []
             for x in range(0, self.scanobj.number_of_scans):
+                # For the zero case, label the tab as the Reference Scan
                 if x == 0:
                     self.tab_objects.append(uic.loadUi(self.gfx_ui))
                     self.canvas_objects.append(FigureCanvas())
@@ -113,6 +126,7 @@ class Ui(QtWidgets.QMainWindow):
                     self.scan_collection_tabs.removeTab(0)
                     self.scan_collection_tabs.insertTab(0, self.tab_objects[0], 'Reference Scan')
                     
+                # For all other cases, replace per usual but name tab 'Scan n'
                 else:
                     self.tab_objects.append(uic.loadUi(self.gfx_ui))
                     self.scan_collection_tabs.addTab(self.tab_objects[-1],
@@ -123,13 +137,39 @@ class Ui(QtWidgets.QMainWindow):
                     ))
                     self.tab_objects[-1].gfx_pane.addWidget(self.canvas_objects[-1])
                     self.tab_objects[-1].gfx_pane.addWidget(self.plot_navigation_objects[-1])
-
-                self.process_dc_button.setEnabled(True)                        
+                
+                # Enable the process DC button once scans are configured
+                self.process_dc_button.setEnabled(True)
+            else:
+                # TODO: Implement No Path
+                pass
         return
 
     def ui_process_dc(self):
+        self.current_map = 0
+        self.progress = uic.loadUi(self.gfx_progress)
+        self.progress.setWindowTitle('Processing DC Maps')
+        self.progress.progresslabel.setText('Processing DC...')
+        self.progress.progressbar.setValue(0)
+        self.progress.progressbar.setRange(0, self.scanobj.number_of_scans)
+        dc_process = multiprocessing.Process(target=self.scanobj.assemble_dc_maps)
+        dc_process.start()
+        self.progress.exec()
+        
+        while self.scanobj.dc_map_progress != self.scanobj.number_of_scans:
+            print(self.scanobj.dc_map_progress)
+            self.progress.progressbar.setValue(int(self.scanobj.dc_map_progress))
+            time.sleep(0.25)
+
+        dc_process.join()
+        self.progress.done()
         for x in range(0, self.scanobj.rf_files.__len__()):
-            self.scanobj.scan_collection[x].mp_assemble_dcmap()
+            if x == 0:
+                tabstr = 'Reference Angle'
+            else:
+                tabstr = 'Scan {0}'.format(x)
+            
+            self.scan_collection_tabs.removeTab(x)
             self.tab_objects[x] = uic.loadUi(self.gfx_ui)
             fig = Figure()
             axes = fig.subplots()
@@ -138,13 +178,10 @@ class Ui(QtWidgets.QMainWindow):
             self.plot_navigation_objects[x] = NavigationToolbar(self.canvas_objects[x], None)
             self.tab_objects[x].gfx_pane.addWidget(self.canvas_objects[x])
             self.tab_objects[x].gfx_pane.addWidget(self.plot_navigation_objects[x])
-            self.scan_collection_tabs.removeTab(x)
-            if x == 0:
-                tabstr = 'Reference Angle'
-            else:
-                tabstr = 'Scan {0}'.format(x)
             self.scan_collection_tabs.insertTab(x, self.tab_objects[x], tabstr)
-        self.process_dc_button.setText('DC Processed')
+            self.scan_collection_tabs.setCurrentIndex(0)
+
+        
         return
 if __name__ == '__main__':
     app = QtWidgets.QApplication(sys.argv)
