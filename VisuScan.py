@@ -90,3 +90,12 @@ class VisuScanCollection:
           
         self.dc_map_progress = -1
         return
+
+    def assemble_rf_maps(self):
+        self.rf_map_progress = 0
+        for idx, current_scan in enumerate(self.scan_collection):
+            current_scan.mp_assemble_fftmap()
+            self.rf_map_progress = int(idx)
+        
+        self.rf_map_progress = -1
+        return

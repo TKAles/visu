@@ -46,6 +46,7 @@ class Ui(QtWidgets.QMainWindow):
         self.process_progress = 0
         self.load_wfm_dataset_button.clicked.connect(self.wfm_load)
         self.process_dc_button.clicked.connect(self.ui_process_dc)
+        self.process_fft_button.clicked.connect(self.ui_process_fft)
         self.gfx_ui = os.getcwd() + '\\visu_gfxpane.ui'
         self.gfx_progress = os.getcwd() + '\\visu_progress.ui'
 
@@ -182,6 +183,7 @@ class Ui(QtWidgets.QMainWindow):
         self.max_dc_slider.setEnabled(True)
         self.process_dc_button.setText('DC View Mode: Map {0}'.format(
             self.scan_collection_tabs.currentIndex()))
+        self.process_fft_button.setEnabled(True)
         return
 
     def ui_draw_dc(self):
@@ -204,7 +206,23 @@ class Ui(QtWidgets.QMainWindow):
             self.scan_collection_tabs.setCurrentIndex(0)
         return
 
-    
+    def ui_process_fft(self):
+        fft_thread = threading.Thread(target=self.scanobj.assemble_rf_maps)
+        self.process_fft_button.setEnabled(False)
+        fft_thread.start()
+        while self.scanobj.rf_map_progress != -1:
+            self.process_fft_button.setText('Processing FFT {0} of {1}'.format(
+                self.scanobj.rf_map_progress, self.scanobj.rf_files.__len__()
+            ))
+            self.statusbar.showMessage('PROCESSING FFT {0}/{1}'.format(
+                self.scanobj.rf_map_progress, self.scanobj.rf_files.__len__()
+            ))
+            time.sleep(0.25)
+        self.process_dc_button.setEnabled(True)
+        self.process_dc_button.setText('Switch to DC View')
+        self.process_fft_button.setText('FFT View Mode: Viewing {0}'.format(
+            self.scan_collection_tabs.currentIndex()
+        ))
         
 if __name__ == '__main__':
     app = QtWidgets.QApplication(sys.argv)

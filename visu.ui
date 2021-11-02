@@ -148,7 +148,7 @@
         <item>
          <layout class="QHBoxLayout" name="horizontalLayout_8">
           <item>
-           <widget class="QLabel" name="label_16">
+           <widget class="QLabel" name="min2_dc_label">
             <property name="text">
              <string>min</string>
             </property>
@@ -165,7 +165,7 @@
            </widget>
           </item>
           <item>
-           <widget class="QLabel" name="label_18">
+           <widget class="QLabel" name="max2_dc_label">
             <property name="text">
              <string>max</string>
             </property>
