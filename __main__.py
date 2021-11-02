@@ -18,6 +18,7 @@ from PyQt5.QtCore import pyqtSlot
 
 from functools import partial
 import multiprocessing
+import threading
 import os
 import sys
 import time
@@ -42,6 +43,7 @@ class Ui(QtWidgets.QMainWindow):
         self.dc_axes = []
         self.rf_figures = []
         self.rf_axes = []
+        self.process_progress = 0
         self.load_wfm_dataset_button.clicked.connect(self.wfm_load)
         self.process_dc_button.clicked.connect(self.ui_process_dc)
         self.gfx_ui = os.getcwd() + '\\visu_gfxpane.ui'
@@ -147,22 +149,42 @@ class Ui(QtWidgets.QMainWindow):
 
     def ui_process_dc(self):
         self.current_map = 0
-        self.progress = uic.loadUi(self.gfx_progress)
-        self.progress.setWindowTitle('Processing DC Maps')
-        self.progress.progresslabel.setText('Processing DC...')
-        self.progress.progressbar.setValue(0)
-        self.progress.progressbar.setRange(0, self.scanobj.number_of_scans)
-        dc_process = multiprocessing.Process(target=self.scanobj.assemble_dc_maps)
-        dc_process.start()
-        self.progress.exec()
+        self.statusbar.showMessage('Processing DC 1/{0}'.format(self.scanobj.dc_files.__len__()))
+        self.process_dc_button.setText('Processing WFM...')
+        self.process_dc_button.setEnabled(False)
+        dc_thread = threading.Thread(target=self.scanobj.assemble_dc_maps)
+        dc_thread.start()
         
-        while self.scanobj.dc_map_progress != self.scanobj.number_of_scans:
-            print(self.scanobj.dc_map_progress)
-            self.progress.progressbar.setValue(int(self.scanobj.dc_map_progress))
+        while self.scanobj.dc_map_progress != -1:
             time.sleep(0.25)
+            self.process_dc_button.setText('Assembling DC Map {0}...'.format(
+                self.scanobj.dc_map_progress
+            ))
+            self.statusbar.showMessage('Processing DC {0}/{1}'.format(
+                self.scanobj.dc_map_progress, self.scanobj.dc_files.__len__() - 1
+            ))
 
-        dc_process.join()
-        self.progress.done()
+        self.ui_draw_dc()
+        self.angle_spacing_text.setEnabled(True)
+        self.angle_spacing_text.setText('{0}'.format(self.scanobj.angle_increment))
+        self.statusbar.showMessage('DC View Mode: Map {0}'.format(
+            self.scan_collection_tabs.currentIndex()
+        ), 2000)
+        dc_min = self.scanobj.scan_collection[0].dc_map.min()
+        final_min = dc_min.min()
+        self.min_dc_label.setText('{0:.03f}v'.format(final_min))
+        dc_max = self.scanobj.scan_collection[0].dc_map.max()
+        final_max = dc_max.max()
+        self.max_dc_label.setText('{0:.03f}v'.format(final_max))
+        self.min_dc_slider.setEnabled(True)
+        self.min_dc_slider.setMinimum(0)
+        self.min_dc_slider.setMaximum(int(final_max*100))
+        self.max_dc_slider.setEnabled(True)
+        self.process_dc_button.setText('DC View Mode: Map {0}'.format(
+            self.scan_collection_tabs.currentIndex()))
+        return
+
+    def ui_draw_dc(self):
         for x in range(0, self.scanobj.rf_files.__len__()):
             if x == 0:
                 tabstr = 'Reference Angle'
@@ -180,9 +202,10 @@ class Ui(QtWidgets.QMainWindow):
             self.tab_objects[x].gfx_pane.addWidget(self.plot_navigation_objects[x])
             self.scan_collection_tabs.insertTab(x, self.tab_objects[x], tabstr)
             self.scan_collection_tabs.setCurrentIndex(0)
-
-        
         return
+
+    
+        
 if __name__ == '__main__':
     app = QtWidgets.QApplication(sys.argv)
     window = Ui()
