@@ -14,7 +14,7 @@ import sys
 
 import MapCollection
 
-ui_path = '/home/tka/source/visu/'
+ui_path = 'C:\\Users\\Thomas Ales\\source\\repos\\TKAles\\visu\\'
 ui_file = 'visu2.ui'
 widget_file = 'visu2_worktab.ui'
 

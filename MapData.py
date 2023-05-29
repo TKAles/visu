@@ -34,7 +34,7 @@ class TekMap:
 
     rf_voltagemap = []
 
-    def __init__(self, _datadir):
+    def __init__(self, _datadir=""):
         '''
         TekMap(_datadir): Constructor, requires _datadir which is an absolute
         path to the WFM directory.
@@ -48,7 +48,7 @@ class TekMap:
         self.fft_map = []
         self.velocity_map = []
         self.waveforms = []
-        self.thresholddc = 0.050
+        self.thresholddc = 0.03
         self.metadata = {"acq_angle": 0,
                          "x_start": 0,
                          "y_start": 0,

@@ -28,7 +28,7 @@ class TekWaveForm:
 
     mean_dc_level = []
     dc_mask = []
-    mask_threshold_voltage = 0.080
+    mask_threshold_voltage = 0.010
     saw_packet_centerpoint = 0
     saw_window_points = []
     saw_packet_window = [512, 512]
@@ -122,10 +122,11 @@ class TekWaveForm:
         # Return DC dataframe
         return mean_dc
 
-    def mp_compute_fft(self, file_name="", _fftsize=int(8192)):
+    def mp_compute_fft(self, file_name="", _fftsize=int(8192*4)):
         '''
         mp_compute_fft(file_name): mappable function to compute the pixel FFT for a given file.
         '''
+        sp.fft = pyfftw.interfaces.scipy_fft
         if(file_name == ""):
             file_name = self.rf_filename
 
@@ -153,23 +154,20 @@ class TekWaveForm:
         # Window input to +/- 512 points around maximum voltage sample. If center is less
         # than 512, default to record length of 0:1024
         results = []
+        printed_version = False
         for record_idx in range(0, _numrecords):
             _vtr = np.array(_vtdf[record_idx])
             _vtidxmax = _vtr.argmax()
-            if(_vtidxmax < 512):
-                _vtidxmax = 512
-                _vts = _vtr[0:1024]
-            else:
-                _min = _vtidxmax - 512
-                _max = _vtidxmax + 511
-                _vts = _vtr[_min:_max]
-
+            _vts = _vtr[20:600]
             _fftpower = np.array(sp.fft.rfft(_vts, n=_fftsize))
             _fftfreq = sp.fft.fftfreq(_fftpower.__len__())  * sample_rate
             _fftmax = _fftpower.argmax()
             _fftmaxval = _fftfreq[_fftmax]
             # Append to results 
             results.append(_fftmaxval)
+            if printed_version is False:
+                printed_version = True
+                print('600-point version loaded')
         # Return list of frequencies for row.
         return results
 
@@ -228,9 +226,3 @@ class Utilities:
         X = _frequencies
         x = np.sum(X*_frequencies)/np.sum(_frequencies)
         return _fitX, x
-
-        
-
-    
-
-        
