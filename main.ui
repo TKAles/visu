@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>800</width>
+    <height>600</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>MainWindow</string>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+   <layout class="QHBoxLayout" name="horizontalLayout_2">
+    <item>
+     <layout class="QVBoxLayout" name="verticalLayout">
+      <item>
+       <widget class="QGraphicsView" name="graphicsView"/>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout">
+        <item>
+         <widget class="QPushButton" name="pushButton">
+          <property name="text">
+           <string>PushButton</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+     </layout>
+    </item>
+   </layout>
+  </widget>
+  <widget class="QStatusBar" name="statusbar"/>
+  <widget class="QMenuBar" name="menuBar">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>800</width>
+     <height>30</height>
+    </rect>
+   </property>
+   <widget class="QMenu" name="menuFile">
+    <property name="title">
+     <string>File</string>
+    </property>
+    <addaction name="actionOpen_Directory_2"/>
+    <addaction name="actionOpen_Processed_Directory"/>
+    <addaction name="actionSystem_Options"/>
+    <addaction name="actionQuit_VISU"/>
+   </widget>
+   <widget class="QMenu" name="menuProcessing">
+    <property name="title">
+     <string>Processing</string>
+    </property>
+    <addaction name="actionEdit_Metadata"/>
+    <addaction name="actionProcess_DC_Bias_Maps"/>
+    <addaction name="actionProcess_FFT_Maps"/>
+   </widget>
+   <widget class="QMenu" name="menuExport">
+    <property name="title">
+     <string>Export</string>
+    </property>
+    <addaction name="actionExport_Images"/>
+    <addaction name="actionExport_CSV_Files"/>
+   </widget>
+   <widget class="QMenu" name="menuAbout">
+    <property name="title">
+     <string>About</string>
+    </property>
+    <addaction name="actionAbout_VISU"/>
+   </widget>
+   <widget class="QMenu" name="menuView_Modes">
+    <property name="title">
+     <string>View Modes</string>
+    </property>
+    <widget class="QMenu" name="menuDC">
+     <property name="title">
+      <string>DC</string>
+     </property>
+     <addaction name="actionA_Channel"/>
+     <addaction name="actionB_Channel"/>
+     <addaction name="actionA_B"/>
+    </widget>
+    <addaction name="menuDC"/>
+    <addaction name="actionFFT"/>
+    <addaction name="actionVelocity"/>
+   </widget>
+   <addaction name="menuFile"/>
+   <addaction name="menuProcessing"/>
+   <addaction name="menuView_Modes"/>
+   <addaction name="menuExport"/>
+   <addaction name="menuAbout"/>
+  </widget>
+  <action name="actionOpen_Directory">
+   <property name="icon">
+    <iconset theme="QIcon::ThemeIcon::FolderOpen"/>
+   </property>
+   <property name="text">
+    <string>Open Directory</string>
+   </property>
+   <property name="toolTip">
+    <string>Opens a selected folder and scans for .WFM project files.</string>
+   </property>
+   <property name="menuRole">
+    <enum>QAction::MenuRole::NoRole</enum>
+   </property>
+  </action>
+  <action name="actionOpen_Directory_2">
+   <property name="text">
+    <string>Open Unprocessed Directory</string>
+   </property>
+  </action>
+  <action name="actionProcess_DC_Bias_Maps">
+   <property name="text">
+    <string>Process DC Bias Maps</string>
+   </property>
+  </action>
+  <action name="actionProcess_FFT_Maps">
+   <property name="text">
+    <string>Process FFT Maps</string>
+   </property>
+  </action>
+  <action name="actionOpen_Processed_Directory">
+   <property name="text">
+    <string>Open Processed Directory</string>
+   </property>
+  </action>
+  <action name="actionSystem_Options">
+   <property name="text">
+    <string>System Options</string>
+   </property>
+   <property name="menuRole">
+    <enum>QAction::MenuRole::PreferencesRole</enum>
+   </property>
+  </action>
+  <action name="actionQuit_VISU">
+   <property name="text">
+    <string>Quit VISU</string>
+   </property>
+  </action>
+  <action name="actionExport_Images">
+   <property name="text">
+    <string>Export Images</string>
+   </property>
+  </action>
+  <action name="actionExport_CSV_Files">
+   <property name="text">
+    <string>Export CSV Files</string>
+   </property>
+  </action>
+  <action name="actionAbout_VISU">
+   <property name="text">
+    <string>About VISU</string>
+   </property>
+  </action>
+  <action name="actionEdit_Metadata">
+   <property name="text">
+    <string>Edit Metadata</string>
+   </property>
+  </action>
+  <action name="actionFFT">
+   <property name="text">
+    <string>FFT</string>
+   </property>
+  </action>
+  <action name="actionVelocity">
+   <property name="text">
+    <string>Velocity</string>
+   </property>
+  </action>
+  <action name="actionA_Channel">
+   <property name="text">
+    <string>A Channel</string>
+   </property>
+  </action>
+  <action name="actionB_Channel">
+   <property name="text">
+    <string>B Channel</string>
+   </property>
+  </action>
+  <action name="actionA_B">
+   <property name="text">
+    <string>A+B</string>
+   </property>
+  </action>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>
