@@ -11,3 +11,18 @@ dependencies = [
     "pyside6>=6.10.2",
     "scipy>=1.17.0",
 ]
+
+[project.optional-dependencies]
+gpu = [
+    "cupy-cuda12x; sys_platform != 'darwin'",
+]
+
+[tool.uv]
+# Ensure the lock file resolves wheels for all three target platforms.
+# Without this uv only resolves for the current OS, so Windows/Linux
+# installs may fail to find pre-resolved hashes.
+environments = [
+    "sys_platform == 'darwin'",
+    "sys_platform == 'linux'",
+    "sys_platform == 'win32'",
+]

@@ -415,6 +415,27 @@ def read_wfm_dc_mean(path: Union[str, Path]) -> np.ndarray:
     return mean_counts * hdr.vscale + hdr.voffset
 
 
+def read_wfm_header(path: Union[str, Path]) -> WaveformHeader:
+    """
+    Read and return only the header metadata from a WFM file.
+
+    Reads exactly 838 bytes; no curve data is loaded.  Use this when only
+    timing or shape metadata is needed (e.g. to probe ``tscale`` or
+    ``num_frames``) without the cost of reading the full curve block.
+
+    Parameters
+    ----------
+    path : str or Path
+
+    Returns
+    -------
+    WaveformHeader
+    """
+    path = Path(path)
+    with path.open('rb') as f:
+        return decode_header(f.read(_HEADER_SIZE))
+
+
 def read_wfm_batch(
     paths: list[Union[str, Path]],
     *,

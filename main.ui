@@ -13,13 +13,7 @@
   <property name="windowTitle">
    <string>MainWindow</string>
   </property>
-  <widget class="QWidget" name="centralwidget">
-   <layout class="QHBoxLayout" name="horizontalLayout_2">
-    <item>
-     <widget class="QTabWidget" name="tabWidget"/>
-    </item>
-   </layout>
-  </widget>
+  <widget class="QWidget" name="centralwidget"/>
   <widget class="QStatusBar" name="statusbar"/>
   <widget class="QMenuBar" name="menuBar">
    <property name="geometry">
@@ -47,6 +41,13 @@
     <addaction name="actionProcess_DC_Bias_Maps"/>
     <addaction name="actionProcess_FFT_Maps"/>
    </widget>
+   <widget class="QMenu" name="menuView">
+    <property name="title">
+     <string>View</string>
+    </property>
+    <addaction name="actionViewDC"/>
+    <addaction name="actionViewFFT"/>
+   </widget>
    <widget class="QMenu" name="menuExport">
     <property name="title">
      <string>Export</string>
@@ -60,25 +61,9 @@
     </property>
     <addaction name="actionAbout_VISU"/>
    </widget>
-   <widget class="QMenu" name="menuView_Modes">
-    <property name="title">
-     <string>View Modes</string>
-    </property>
-    <widget class="QMenu" name="menuDC">
-     <property name="title">
-      <string>DC</string>
-     </property>
-     <addaction name="actionA_Channel"/>
-     <addaction name="actionB_Channel"/>
-     <addaction name="actionA_B"/>
-    </widget>
-    <addaction name="menuDC"/>
-    <addaction name="actionFFT"/>
-    <addaction name="actionVelocity"/>
-   </widget>
    <addaction name="menuFile"/>
    <addaction name="menuProcessing"/>
-   <addaction name="menuView_Modes"/>
+   <addaction name="menuView"/>
    <addaction name="menuExport"/>
    <addaction name="menuAbout"/>
   </widget>
@@ -149,29 +134,26 @@
     <string>Edit Metadata</string>
    </property>
   </action>
-  <action name="actionFFT">
+  <action name="actionViewDC">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
    <property name="text">
-    <string>FFT</string>
+    <string>DC Map</string>
    </property>
   </action>
-  <action name="actionVelocity">
-   <property name="text">
-    <string>Velocity</string>
+  <action name="actionViewFFT">
+   <property name="checkable">
+    <bool>true</bool>
    </property>
-  </action>
-  <action name="actionA_Channel">
-   <property name="text">
-    <string>A Channel</string>
+   <property name="checked">
+    <bool>false</bool>
    </property>
-  </action>
-  <action name="actionB_Channel">
    <property name="text">
-    <string>B Channel</string>
-   </property>
-  </action>
-  <action name="actionA_B">
-   <property name="text">
-    <string>A+B</string>
+    <string>FFT Map</string>
    </property>
   </action>
  </widget>

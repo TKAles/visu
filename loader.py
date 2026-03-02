@@ -24,9 +24,8 @@ FFT details
 -----------
   The FFT size is chosen so that each bin spans exactly 1 MHz, snapped to the
   nearest FFTW-optimal length (products of small primes).
-  Each pixel stores the peak single-sided power (V²) found across the RF
-  spectrum, excluding the DC bin.  The frequency axis can be reconstructed
-  as np.fft.rfftfreq(n_fft, d=tscale).
+  Each pixel stores the frequency (MHz) of the peak single-sided power found
+  across the RF spectrum, excluding the DC bin.  Generation wavelength: 12.5 µm.
 """
 
 from __future__ import annotations
@@ -48,7 +47,7 @@ from scipy.fft import next_fast_len
 
 from concurrent.futures import ProcessPoolExecutor
 
-from tekwfm import Waveform, read_wfm, read_wfm_batch, read_wfm_dc_mean
+from tekwfm import Waveform, read_wfm, read_wfm_batch, read_wfm_dc_mean, read_wfm_header
 
 # ---------------------------------------------------------------------------
 # FFT backend configuration
@@ -171,8 +170,8 @@ class ProcessedDataset:
     source_dir : Path
     dc_mode    : DCMode
     fft_map    : ndarray, shape (n_scans, n_rows, n_frames), float64
-        Peak single-sided RF power (V²) per pixel.
-        Frequency axis: np.fft.rfftfreq(n_fft, d=tscale)[1:]
+        Frequency (MHz) of the peak single-sided RF power per pixel.
+        Generation wavelength: 12.5 µm.
     dc_map     : ndarray, shape (n_scans, n_rows, n_frames), float64
         Mean DC voltage (V) per pixel (primary channel).
     dcb_map    : ndarray or None, same shape
@@ -185,7 +184,7 @@ class ProcessedDataset:
 
     source_dir: Path
     dc_mode:    DCMode
-    fft_map:    np.ndarray
+    fft_map:    np.ndarray | None   # None until FFT processing is run
     dc_map:     np.ndarray
     dcb_map:    np.ndarray | None
     n_fft:      int
@@ -340,16 +339,17 @@ def _rfft(data: np.ndarray, n_fft: int) -> np.ndarray:
     return _pfft.rfft(data, n=n_fft, axis=0, threads=_N_THREADS)
 
 
-def _peak_power_per_frame(wfm: Waveform, n_fft: int) -> np.ndarray:
+def _peak_freq_mhz_per_frame(wfm: Waveform, n_fft: int) -> np.ndarray:
     """
-    For each FastFrame, return the peak single-sided power across the RF
-    spectrum (DC bin excluded).
+    For each FastFrame, return the frequency (MHz) of the peak single-sided
+    power across the RF spectrum (DC bin excluded).
 
     Processing
     ----------
     1. rfft(voltages, n=n_fft) along the sample axis — all frames at once.
     2. One-sided power: P_k = 2|X_k|² / n_fft²  for k ≥ 1.
-    3. Peak over frequency bins for each frame → one scalar per frame.
+    3. argmax over frequency bins for each frame → peak bin index per frame.
+    4. Convert bin index to frequency in MHz via rfftfreq.
 
     Parameters
     ----------
@@ -359,14 +359,18 @@ def _peak_power_per_frame(wfm: Waveform, n_fft: int) -> np.ndarray:
     Returns
     -------
     ndarray, shape (n_frames,), float64
-        Peak single-sided power (V²) per frame.
+        Frequency (MHz) of peak single-sided power per frame.
     """
     spectra = _rfft(wfm.volts, n_fft)              # (n_fft//2+1, n_frames)
 
     # One-sided amplitude²/2 normalised to V²; skip bin 0 (DC)
     power   = (2.0 / n_fft ** 2) * np.abs(spectra[1:]) ** 2  # (n_fft//2, n_frames)
 
-    return power.max(axis=0)                        # (n_frames,)
+    # Frequency axis in MHz for bins 1..n_fft//2
+    freq_mhz = np.fft.rfftfreq(n_fft, d=wfm.tscale)[1:] / 1e6  # (n_fft//2,)
+
+    peak_indices = power.argmax(axis=0)             # (n_frames,)
+    return freq_mhz[peak_indices]                   # (n_frames,)
 
 
 def _mean_dc_per_frame(wfm: Waveform) -> np.ndarray:
@@ -385,8 +389,189 @@ def _mean_dc_per_frame(wfm: Waveform) -> np.ndarray:
 
 
 # ---------------------------------------------------------------------------
+# Worker helpers (module-level so ProcessPoolExecutor can pickle them)
+# ---------------------------------------------------------------------------
+
+
+def _rf_row_task(args: tuple) -> np.ndarray:
+    """
+    Worker: read one RF WFM file and return peak-frequency per frame in MHz.
+
+    Running the FFT inside the worker eliminates the large IPC transfer that
+    would otherwise be needed to ship the full ``(n_samples, n_frames)``
+    float64 waveform back to the main process (~10–40 MB per row).  Only the
+    ``(n_frames,)`` result (~1.6 KB) crosses the process boundary.
+
+    Parameters
+    ----------
+    args : (path, n_fft, dc_vals, dc_threshold)
+        path         — path to the RF WFM file
+        n_fft        — FFT length (pre-computed by the main process from tscale)
+        dc_vals      — DC mean per frame for this row (n_frames,), or None
+        dc_threshold — pixels whose DC value is below this threshold are set to
+                       0.0 MHz (DC component) instead of the peak RF frequency.
+                       Pass None to disable thresholding.
+
+    Returns
+    -------
+    ndarray, shape (n_frames,), float64
+        Frequency (MHz) of peak single-sided power per frame.
+    """
+    path, n_fft, dc_vals, dc_threshold = args
+    wfm = read_wfm(path)
+    freqs = _peak_freq_mhz_per_frame(wfm, n_fft)
+    if dc_vals is not None and dc_threshold is not None:
+        n = min(len(dc_vals), len(freqs))
+        below = np.asarray(dc_vals[:n]) < dc_threshold
+        freqs[:n][below] = 0.0
+    return freqs
+
+
+# ---------------------------------------------------------------------------
 # Main processing pipeline
 # ---------------------------------------------------------------------------
+
+
+def process_dc_maps(
+    collated: CollatedDataset,
+    *,
+    workers: int | None = None,
+    progress_callback: Callable[[int, int, int, int, int], None] | None = None,
+) -> ProcessedDataset:
+    """
+    Load and process DC files only — the first processing stage.
+
+    Returns a :class:`ProcessedDataset` with ``dc_map`` (and ``dcb_map`` for
+    dual mode) populated.  ``fft_map`` is ``None``; call
+    :func:`process_fft_maps` afterwards to add RF data.
+
+    Parameters
+    ----------
+    collated : CollatedDataset
+    workers  : int, optional
+        Worker processes for parallel DC I/O. None → os.cpu_count().
+    progress_callback : callable(completed_rows, total_rows), optional
+    """
+    n_scans = collated.n_scans
+    dual    = collated.dc_mode == 'dual'
+
+    rf_hdr   = read_wfm_header(collated.scans[0].rf[0])
+    dc_hdr   = read_wfm_header(collated.scans[0].dc[0])
+    tscale   = rf_hdr.tscale
+    n_fft    = _fft_n_for_1mhz_bins(tscale)
+    n_frames = min(rf_hdr.num_frames, dc_hdr.num_frames)
+
+    max_rows = max(scan.n_rows for scan in collated.scans)
+
+    dc_map  = np.full((n_scans, max_rows, n_frames), np.nan, dtype=np.float64)
+    dcb_map = np.full((n_scans, max_rows, n_frames), np.nan, dtype=np.float64) if dual else None
+
+    total = sum(scan.n_rows for scan in collated.scans)
+    done  = 0
+
+    with ProcessPoolExecutor(max_workers=workers) as pool:
+        for scan_idx, scan in enumerate(collated.scans):
+            dc_futures  = [pool.submit(read_wfm_dc_mean, p) for p in scan.dc]
+            dcb_futures = [pool.submit(read_wfm_dc_mean, p) for p in scan.dcb] if dual else []
+
+            for row_idx in range(len(dc_futures)):
+                dc_vals = dc_futures[row_idx].result()
+                n_dc = min(len(dc_vals), n_frames)
+                dc_map[scan_idx, row_idx, :n_dc] = dc_vals[:n_dc]
+
+                if dual and dcb_futures:
+                    dcb_vals = dcb_futures[row_idx].result()
+                    n_dcb = min(len(dcb_vals), n_frames)
+                    dcb_map[scan_idx, row_idx, :n_dcb] = dcb_vals[:n_dcb]  # type: ignore[index]
+
+                done += 1
+                if progress_callback:
+                    progress_callback(scan_idx, row_idx + 1, len(dc_futures), done, total)
+
+    return ProcessedDataset(
+        source_dir=collated.source_dir,
+        dc_mode=collated.dc_mode,
+        fft_map=None,
+        dc_map=dc_map,
+        dcb_map=dcb_map,
+        n_fft=n_fft,
+        tscale=tscale,
+    )
+
+
+def process_fft_maps(
+    collated: CollatedDataset,
+    dc_result: ProcessedDataset,
+    *,
+    dc_threshold: float | None = None,
+    workers: int | None = None,
+    progress_callback: Callable[[int, int, int, int, int], None] | None = None,
+) -> ProcessedDataset:
+    """
+    Process RF files and add FFT maps to an existing DC-only dataset.
+
+    Parameters
+    ----------
+    collated     : CollatedDataset
+    dc_result    : ProcessedDataset
+        Must have been produced by :func:`process_dc_maps` for the same scan.
+        ``dc_map`` and ``dcb_map`` are carried forward unchanged.
+    dc_threshold : float, optional
+        Pixels whose DC mean value is below this threshold are assigned 0 MHz
+        (the DC component / no RF signal) instead of computing the full FFT.
+        Useful for masking regions with insufficient DC drive.  Pass None to
+        disable thresholding (default).
+    workers      : int, optional
+    progress_callback : callable(completed_rows, total_rows), optional
+
+    Returns
+    -------
+    ProcessedDataset
+        A new dataset with ``fft_map`` populated and all DC data preserved.
+    """
+    n_fft    = dc_result.n_fft
+    n_frames = dc_result.dc_map.shape[2]
+    n_scans  = dc_result.dc_map.shape[0]
+    max_rows = dc_result.dc_map.shape[1]
+
+    fft_map = np.full((n_scans, max_rows, n_frames), np.nan, dtype=np.float64)
+
+    total = sum(scan.n_rows for scan in collated.scans)
+    done  = 0
+
+    with ProcessPoolExecutor(max_workers=workers) as pool:
+        for scan_idx, scan in enumerate(collated.scans):
+            dc_scan = dc_result.dc_map[scan_idx]  # (max_rows, n_frames)
+            rf_futures = [
+                pool.submit(
+                    _rf_row_task,
+                    (p, n_fft,
+                     dc_scan[row_idx] if dc_threshold is not None else None,
+                     dc_threshold),
+                )
+                for row_idx, p in enumerate(scan.rf)
+            ]
+
+            for row_idx, rf_future in enumerate(rf_futures):
+                rf_vals = rf_future.result()
+                n_rf = min(len(rf_vals), n_frames)
+                fft_map[scan_idx, row_idx, :n_rf] = rf_vals[:n_rf]
+
+                done += 1
+                if progress_callback:
+                    progress_callback(scan_idx, row_idx + 1, len(rf_futures), done, total)
+
+    _save_fftw_wisdom()
+
+    return ProcessedDataset(
+        source_dir=dc_result.source_dir,
+        dc_mode=dc_result.dc_mode,
+        fft_map=fft_map,
+        dc_map=dc_result.dc_map,
+        dcb_map=dc_result.dcb_map,
+        n_fft=n_fft,
+        tscale=dc_result.tscale,
+    )
 
 
 def process_dataset(
@@ -402,7 +587,7 @@ def process_dataset(
 
     Processing per row
     ------------------
-    RF  : rfft → peak single-sided power (V²) per frame  → fft_map pixel
+    RF  : rfft → frequency (MHz) of peak single-sided power per frame  → fft_map pixel
     DC  : mean voltage per frame                          → dc_map pixel
     DCB : mean voltage per frame (dual mode only)         → dcb_map pixel
 
@@ -423,11 +608,12 @@ def process_dataset(
     # Probe the first RF and DC files for tscale, n_fft, and frame counts.
     # RF and DC files can have different numbers of FastFrames, so probe both
     # and use the minimum so all maps share a single consistent shape.
-    rf_probe = read_wfm(collated.scans[0].rf[0])
-    dc_probe = read_wfm(collated.scans[0].dc[0])
-    tscale   = rf_probe.tscale
+    # read_wfm_header reads only the 838-byte header — no curve data loaded.
+    rf_hdr   = read_wfm_header(collated.scans[0].rf[0])
+    dc_hdr   = read_wfm_header(collated.scans[0].dc[0])
+    tscale   = rf_hdr.tscale
     n_fft    = _fft_n_for_1mhz_bins(tscale)
-    n_frames = min(rf_probe.volts.shape[1], dc_probe.volts.shape[1])
+    n_frames = min(rf_hdr.num_frames, dc_hdr.num_frames)
 
     # Scans can have different row counts; allocate for the largest scan.
     # NaN-fill so rows that belong to shorter scans are clearly invalid.
@@ -447,15 +633,13 @@ def process_dataset(
     # rather than a full float64 waveform.
     with ProcessPoolExecutor(max_workers=workers) as pool:
         for scan_idx, scan in enumerate(collated.scans):
-            rf_futures  = [pool.submit(read_wfm,         p) for p in scan.rf]
-            dc_futures  = [pool.submit(read_wfm_dc_mean, p) for p in scan.dc]
+            rf_futures  = [pool.submit(_rf_row_task,      (p, n_fft, None, None)) for p in scan.rf]
+            dc_futures  = [pool.submit(read_wfm_dc_mean, p)          for p in scan.dc]
             dcb_futures = [pool.submit(read_wfm_dc_mean, p) for p in scan.dcb] if dual else []
 
             for row_idx, rf_future in enumerate(rf_futures):
-                rf_wfm  = rf_future.result()
+                rf_vals = rf_future.result()
                 dc_vals = dc_futures[row_idx].result()
-
-                rf_vals = _peak_power_per_frame(rf_wfm, n_fft)
 
                 n_rf = min(len(rf_vals), n_frames)
                 n_dc = min(len(dc_vals), n_frames)
@@ -497,7 +681,7 @@ def save_dataset(processed: ProcessedDataset, output_dir: Path) -> Path:
     Written files
     -------------
     dataset.json   Metadata and file references.
-    fft_map.npy    Peak RF power map,  shape (n_scans, n_rows, n_frames), V².
+    fft_map.npy    Peak RF frequency map, shape (n_scans, n_rows, n_frames), MHz.
     dc_map.npy     Primary DC map,     shape (n_scans, n_rows, n_frames), V.
     dcb_map.npy    Secondary DC map    (dual mode only).
 
@@ -507,7 +691,9 @@ def save_dataset(processed: ProcessedDataset, output_dir: Path) -> Path:
 
     files: dict[str, str] = {}
 
-    np.save(output_dir / 'fft_map.npy', processed.fft_map); files['fft_map'] = 'fft_map.npy'
+    if processed.fft_map is not None:
+        np.save(output_dir / 'fft_map.npy', processed.fft_map)
+        files['fft_map'] = 'fft_map.npy'
     np.save(output_dir / 'dc_map.npy',  processed.dc_map);  files['dc_map']  = 'dc_map.npy'
 
     if processed.dcb_map is not None:
@@ -521,9 +707,9 @@ def save_dataset(processed: ProcessedDataset, output_dir: Path) -> Path:
         'dc_mode':    processed.dc_mode,
         'tscale':     processed.tscale,
         'shape': {
-            'n_scans':  int(processed.fft_map.shape[0]),
-            'n_rows':   int(processed.fft_map.shape[1]),
-            'n_frames': int(processed.fft_map.shape[2]),
+            'n_scans':  int(processed.dc_map.shape[0]),
+            'n_rows':   int(processed.dc_map.shape[1]),
+            'n_frames': int(processed.dc_map.shape[2]),
         },
         'fft_params': {
             'n_fft':              processed.n_fft,
@@ -561,7 +747,7 @@ def load_dataset(dataset_path: Path) -> ProcessedDataset:
     files = meta['files']
 
     try:
-        fft_map = np.load(base / files['fft_map'])
+        fft_map = np.load(base / files['fft_map']) if 'fft_map' in files else None
         dc_map  = np.load(base / files['dc_map'])
         dcb_map = np.load(base / files['dcb_map']) if 'dcb_map' in files else None
     except OSError as exc:
